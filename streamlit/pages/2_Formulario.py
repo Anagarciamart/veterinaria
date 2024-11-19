@@ -11,7 +11,7 @@ st.title("Ejemplo: formulario para dar la entrada de datos 🖥️🖥")
 with st.form("envio"):
     date = st.date_input("Fecha", datetime.now())
     description = st.text_input("Descripción")
-    option = st.selectbox("Opción", ["Opción 1", "Opción 2", "Opción 3"])
+    option = st.selectbox("Opción", ["Registrar Dueño", "Registrar mascota", "Buscar Dueño/Mascota", "Eliminar Dueño/Mascota"])
     amount = st.number_input("Cantidad Económica", min_value=0.0, step=0.01)
 
     submit_button = st.form_submit_button(label="Enviar")
