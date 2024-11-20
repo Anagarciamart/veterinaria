@@ -39,7 +39,10 @@ elif st.session_state.page == 'registrar_dueño':
     # Formulario para registrar un dueño
     with st.form("form_dueño"):
         name = st.text_input("Nombre del Dueño")
-        contact = st.text_input("Contacto del Dueño")
+        dni = st.text_input("DNI del Dueño")
+        address = st.text_input("Dirección del Dueño")
+        email = st.text_input("Correo Electrónico del Dueño")
+        phone = st.text_input("Teléfono del Dueño")
         submit_button = st.form_submit_button(label="Registrar Dueño")
 
     if submit_button:
@@ -47,7 +50,10 @@ elif st.session_state.page == 'registrar_dueño':
         payload = {
             "option": "Registrar Dueño",
             "name": name,
-            "contact": contact
+            "dni": dni,
+            "address": address,
+            "email": email,
+            "phone": phone
         }
         response = requests.post(url, json=payload)
 
@@ -68,17 +74,57 @@ elif st.session_state.page == 'registrar_mascota':
     with st.form("form_mascota"):
         pet_name = st.text_input("Nombre de la Mascota")
         pet_type = st.selectbox("Tipo de Mascota", ["Perro", "Gato", "Otro"])
-        pet_age = st.number_input("Edad de la Mascota", min_value=0, step=1)
-        submit_button = st.form_submit_button(label="Registrar Mascota")
+        breed = st.text_input("Raza de la Mascota")
+        birthdate = st.date_input("Fecha de Nacimiento de la Mascota")
+        medical_conditions = st.text_area("Patologías Previas de la Mascota")
 
-    if submit_button:
-        # Aquí puedes enviar los datos a tu microservicio o almacenarlos
-        payload = {
-            "option": "Registrar Mascota",
-            "pet_name": pet_name,
-            "pet_type": pet_type,
-            "pet_age": pet_age
-        }
+        # Elegir si el dueño es nuevo o ya existente
+        owner_option = st.radio("¿Es el dueño de la mascota un nuevo dueño o uno existente?",
+                                ["Nuevo Dueño", "Dueño Existente"])
+
+        if owner_option == "Nuevo Dueño":
+            # Si es nuevo dueño, mostrar los campos del dueño
+            new_owner_name = st.text_input("Nombre del Nuevo Dueño")
+            new_owner_dni = st.text_input("DNI del Nuevo Dueño")
+            new_owner_address = st.text_input("Dirección del Nuevo Dueño")
+            new_owner_email = st.text_input("Correo Electrónico del Nuevo Dueño")
+            new_owner_phone = st.text_input("Teléfono del Nuevo Dueño")
+            submit_button = st.form_submit_button(label="Registrar Mascota y Dueño")
+
+            if submit_button:
+                # Aquí puedes enviar los datos al microservicio para registrar el nuevo dueño y la mascota
+                payload = {
+                    "option": "Registrar Mascota",
+                    "pet_name": pet_name,
+                    "pet_type": pet_type,
+                    "breed": breed,
+                    "birthdate": birthdate.strftime("%Y-%m-%d"),
+                    "medical_conditions": medical_conditions,
+                    "owner": {
+                        "name": new_owner_name,
+                        "dni": new_owner_dni,
+                        "address": new_owner_address,
+                        "email": new_owner_email,
+                        "phone": new_owner_phone
+                    }
+                }
+        else:
+            # Si es dueño existente, permitir seleccionar un dueño de la base de datos
+            owner_id = st.text_input("ID del Dueño Existente")
+            submit_button = st.form_submit_button(label="Registrar Mascota")
+
+            if submit_button:
+                # Aquí puedes hacer la búsqueda del dueño existente por ID y registrar la mascota
+                payload = {
+                    "option": "Registrar Mascota",
+                    "pet_name": pet_name,
+                    "pet_type": pet_type,
+                    "breed": breed,
+                    "birthdate": birthdate.strftime("%Y-%m-%d"),
+                    "medical_conditions": medical_conditions,
+                    "owner_id": owner_id
+                }
+
         response = requests.post(url, json=payload)
 
         if response.status_code == 200:

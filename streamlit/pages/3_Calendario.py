@@ -174,7 +174,7 @@ if state.get('eventChange') is not None:
     data = state.get('eventChange').get('event')
     ## aquí haríamos un requests.post()
 
-    st.success('cita camboada con éxito')
+    st.success('cita cambiada con éxito')
 
 if st.session_state.get("fecha") is not None:
     st.write('fecha')
