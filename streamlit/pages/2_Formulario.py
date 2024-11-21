@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 from datetime import datetime
+import re  # Para las expresiones regulares
 
 # URL del microservicio FastAPI
 url = "http://fastapi:8000/envio/"
@@ -36,6 +37,19 @@ if st.session_state.page == 'inicio':
 elif st.session_state.page == 'registrar_dueño':
     st.subheader("Registrar Dueño")
 
+    # Funciones de validación para los campos
+    def validar_dni(dni):
+        return bool(re.match(r"^\d{8}[A-Za-z]$", dni))  # 8 dígitos seguidos de una letra
+
+    def validar_telefono(telefono):
+        return bool(re.match(r"^\d{9}$", telefono))  # 9 dígitos
+
+    def validar_direccion(direccion):
+        return bool(re.match(r"^[a-zA-Z0-9\s,.-]+$", direccion))  # letras, números y algunos símbolos
+
+    def validar_email(email):
+        return bool(re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email))  # formato básico de email
+
     # Formulario para registrar un dueño
     with st.form("form_dueño"):
         name = st.text_input("Nombre del Dueño")
@@ -43,28 +57,48 @@ elif st.session_state.page == 'registrar_dueño':
         address = st.text_input("Dirección del Dueño")
         email = st.text_input("Correo Electrónico del Dueño")
         phone = st.text_input("Teléfono del Dueño")
+        date = st.date_input("Fecha de Registro")
         submit_button = st.form_submit_button(label="Registrar Dueño")
 
     if submit_button:
-        # Aquí puedes enviar los datos a tu microservicio o almacenarlos
-        payload = {
-            "option": "Registrar Dueño",
-            "name": name,
-            "dni": dni,
-            "address": address,
-            "email": email,
-            "phone": phone
-        }
-        response = requests.post(url, json=payload)
-
-        if response.status_code == 200:
-            st.success("Dueño registrado correctamente")
+        # Validar cada campo
+        if not name or not dni or not address or not email or not phone:
+            st.error("Por favor, complete todos los campos.")
+        elif not validar_dni(dni):
+            st.error("El DNI debe tener el formato 12345678A (8 dígitos seguidos de una letra).")
+        elif not validar_telefono(phone):
+            st.error("El teléfono debe tener 9 dígitos numéricos.")
+        elif not validar_direccion(address):
+            st.error("La dirección debe contener letras, números y algunos símbolos como , . y -.")
+        elif not validar_email(email):
+            st.error("El correo electrónico debe tener el formato: ejemplo@dominio.com.")
         else:
-            st.error("Error al registrar el dueño")
+            # Si todas las validaciones son correctas, enviar los datos al microservicio
+            payload = {
+                "option": "Registrar Dueño",
+                "name": name,
+                "dni": dni,
+                "address": address,
+                "email": email,
+                "phone": phone,
+                "date": date.isoformat(),
+                # Proporcionar valores predeterminados para amount y description
+                "description": "Registro automático",  # Texto predeterminado
+                "amount": 0.0  # Valor numérico predeterminado
+            }
 
-    # Botón para volver a la página principal
-    if st.button('Volver'):
-        st.session_state.page = 'inicio'
+            try:
+                response = requests.post(url, json=payload)
+
+                if response.status_code == 200:
+                    st.success("Dueño registrado correctamente.")
+                    # Volver al menú principal automáticamente
+                    st.session_state.page = 'inicio'
+                else:
+                    # Mostrar el mensaje del error que envía el servidor
+                    st.error(f"Error al registrar el dueño: {response.text}")
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error al conectar con el servidor: {e}")
 
 # Página para registrar mascota
 elif st.session_state.page == 'registrar_mascota':
@@ -73,7 +107,7 @@ elif st.session_state.page == 'registrar_mascota':
     # Formulario para registrar una mascota
     with st.form("form_mascota"):
         pet_name = st.text_input("Nombre de la Mascota")
-        pet_type = st.selectbox("Tipo de Mascota", ["Perro", "Gato", "Otro"])
+        pet_type = st.selectbox("Tipo de Mascota", ["Perro", "Gato"])
         breed = st.text_input("Raza de la Mascota")
         birthdate = st.date_input("Fecha de Nacimiento de la Mascota")
         medical_conditions = st.text_area("Patologías Previas de la Mascota")
@@ -142,7 +176,7 @@ elif st.session_state.page == 'buscar_dueño_mascota':
 
     # Formulario para realizar la búsqueda
     with st.form("form_buscar"):
-        search_query = st.text_input("Buscar por Nombre o ID")
+        search_query = st.text_input("Buscar por Nombre o ID(DNI)")
         submit_button = st.form_submit_button(label="Buscar")
 
     if submit_button:
