@@ -104,6 +104,16 @@ elif st.session_state.page == 'registrar_dueño':
 elif st.session_state.page == 'registrar_mascota':
     st.subheader("Registrar Mascota")
 
+
+    # Funciones de validación para los campos
+    def validar_nombre(nombre):
+        return bool(re.match(r"^[a-zA-Z\s]+$", nombre))  # Solo letras y espacios
+
+
+    def validar_raza(raza):
+        return bool(re.match(r"^[a-zA-Z\s]+$", raza))  # Solo letras y espacios
+
+
     # Formulario para registrar una mascota
     with st.form("form_mascota"):
         pet_name = st.text_input("Nombre de la Mascota")
@@ -112,63 +122,48 @@ elif st.session_state.page == 'registrar_mascota':
         birthdate = st.date_input("Fecha de Nacimiento de la Mascota")
         medical_conditions = st.text_area("Patologías Previas de la Mascota")
 
-        # Elegir si el dueño es nuevo o ya existente
-        owner_option = st.radio("¿Es el dueño de la mascota un nuevo dueño o uno existente?",
-                                ["Nuevo Dueño", "Dueño Existente"])
+        # Campos relacionados con el dueño
+        owner_dni = st.text_input("DNI del Dueño (existente o nuevo)")
+        submit_button = st.form_submit_button(label="Registrar Mascota")
 
-        if owner_option == "Nuevo Dueño":
-            # Si es nuevo dueño, mostrar los campos del dueño
-            new_owner_name = st.text_input("Nombre del Nuevo Dueño")
-            new_owner_dni = st.text_input("DNI del Nuevo Dueño")
-            new_owner_address = st.text_input("Dirección del Nuevo Dueño")
-            new_owner_email = st.text_input("Correo Electrónico del Nuevo Dueño")
-            new_owner_phone = st.text_input("Teléfono del Nuevo Dueño")
-            submit_button = st.form_submit_button(label="Registrar Mascota y Dueño")
-
-            if submit_button:
-                # Aquí puedes enviar los datos al microservicio para registrar el nuevo dueño y la mascota
-                payload = {
-                    "option": "Registrar Mascota",
-                    "pet_name": pet_name,
-                    "pet_type": pet_type,
-                    "breed": breed,
-                    "birthdate": birthdate.strftime("%Y-%m-%d"),
-                    "medical_conditions": medical_conditions,
-                    "owner": {
-                        "name": new_owner_name,
-                        "dni": new_owner_dni,
-                        "address": new_owner_address,
-                        "email": new_owner_email,
-                        "phone": new_owner_phone
-                    }
-                }
+    if submit_button:
+        # Validar campos de la mascota
+        if not pet_name or not pet_type or not breed or not owner_dni:
+            st.error("Por favor, complete todos los campos.")
+        elif not validar_nombre(pet_name):
+            st.error("El nombre de la mascota solo puede contener letras y espacios.")
+        elif not validar_raza(breed):
+            st.error("La raza de la mascota solo puede contener letras y espacios.")
+        elif not re.match(r"^\d{8}[A-Za-z]$", owner_dni):
+            st.error("El DNI del dueño debe tener el formato 12345678A (8 dígitos seguidos de una letra).")
         else:
-            # Si es dueño existente, permitir seleccionar un dueño de la base de datos
-            owner_id = st.text_input("ID del Dueño Existente")
-            submit_button = st.form_submit_button(label="Registrar Mascota")
+            # Si todas las validaciones son correctas, enviar los datos al microservicio
+            payload = {
+                "option": "Registrar Mascota",
+                "pet_name": pet_name,
+                "pet_type": pet_type,
+                "breed": breed,
+                "birthdate": birthdate.isoformat(),
+                "medical_conditions": medical_conditions,
+                "owner_dni": owner_dni,
+                # Campos adicionales requeridos por el microservicio
+                "date": birthdate.isoformat(),  # Por ejemplo, puedes usar la fecha de nacimiento como registro
+                "description": "Registro de mascota",  # Texto predeterminado
+                "amount": 0.0  # Valor numérico predeterminado
+            }
 
-            if submit_button:
-                # Aquí puedes hacer la búsqueda del dueño existente por ID y registrar la mascota
-                payload = {
-                    "option": "Registrar Mascota",
-                    "pet_name": pet_name,
-                    "pet_type": pet_type,
-                    "breed": breed,
-                    "birthdate": birthdate.strftime("%Y-%m-%d"),
-                    "medical_conditions": medical_conditions,
-                    "owner_id": owner_id
-                }
+            try:
+                response = requests.post(url, json=payload)
 
-        response = requests.post(url, json=payload)
-
-        if response.status_code == 200:
-            st.success("Mascota registrada correctamente")
-        else:
-            st.error("Error al registrar la mascota")
-
-    # Botón para volver a la página principal
-    if st.button('Volver'):
-        st.session_state.page = 'inicio'
+                if response.status_code == 200:
+                    st.success("Mascota registrada correctamente.")
+                    # Volver al menú principal automáticamente
+                    st.session_state.page = 'inicio'
+                else:
+                    # Mostrar el mensaje del error que envía el servidor
+                    st.error(f"Error al registrar la mascota: {response.text}")
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error al conectar con el servidor: {e}")
 
 # Página para buscar dueño o mascota
 elif st.session_state.page == 'buscar_dueño_mascota':
@@ -176,7 +171,7 @@ elif st.session_state.page == 'buscar_dueño_mascota':
 
     # Formulario para realizar la búsqueda
     with st.form("form_buscar"):
-        search_query = st.text_input("Buscar por Nombre o ID(DNI)")
+        search_query = st.text_input("Buscar por Nombre o ID")
         submit_button = st.form_submit_button(label="Buscar")
 
     if submit_button:
