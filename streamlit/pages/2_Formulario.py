@@ -19,7 +19,7 @@ if st.session_state.page == 'inicio':
 
     # Selección de la opción principal
     option = st.selectbox("Opción",
-                          ["Registrar Dueño", "Registrar mascota", "Buscar Dueño/Mascota", "Eliminar Dueño/Mascota"])
+                          ["Registrar Dueño", "Registrar mascota", "Buscar Dueño", "Eliminar Dueño/Mascota"])
 
     # Botón para enviar y redirigir a la página correspondiente
     if st.button('Enviar'):
@@ -28,8 +28,8 @@ if st.session_state.page == 'inicio':
             st.session_state.page = 'registrar_dueño'
         elif option == "Registrar mascota":
             st.session_state.page = 'registrar_mascota'
-        elif option == "Buscar Dueño/Mascota":
-            st.session_state.page = 'buscar_dueño_mascota'
+        elif option == "Buscar Dueño":
+            st.session_state.page = 'buscar_dueño'
         elif option == "Eliminar Dueño/Mascota":
             st.session_state.page = 'eliminar_dueño_mascota'
 
@@ -165,25 +165,67 @@ elif st.session_state.page == 'registrar_mascota':
             except requests.exceptions.RequestException as e:
                 st.error(f"Error al conectar con el servidor: {e}")
 
-# Página para buscar dueño o mascota
-elif st.session_state.page == 'buscar_dueño_mascota':
-    st.subheader("Buscar Dueño/Mascota")
+# Página para buscar dueño
+elif st.session_state.page == 'buscar_dueño':
+    st.subheader("Buscar Dueño")
 
-    # Formulario para realizar la búsqueda
-    with st.form("form_buscar"):
-        search_query = st.text_input("Buscar por Nombre o ID")
+    # Formulario para buscar dueño por DNI o teléfono
+    with st.form("form_buscar_dueño"):
+        search_type = st.radio("Buscar por:", ["DNI", "Teléfono"])
+        search_value = st.text_input(f"Ingrese el {search_type} del Dueño")
         submit_button = st.form_submit_button(label="Buscar")
 
     if submit_button:
-        # Aquí puedes hacer la solicitud para buscar dueño o mascota
-        payload = {"option": "Buscar Dueño/Mascota", "search_query": search_query}
-        response = requests.post(url, json=payload)
-
-        if response.status_code == 200:
-            st.success("Resultado de la búsqueda:")
-            st.json(response.json())
+        # Validar el input
+        if not search_value:
+            st.error("Por favor, ingrese un valor para buscar.")
         else:
-            st.error("Error al realizar la búsqueda")
+            # Construir el payload para enviar al servidor
+            payload = {
+                "option": "Buscar Dueño",
+                "search_type": search_type.lower(),  # 'dni' o 'teléfono' en minúsculas
+                "search_value": search_value,
+                "date": datetime.now().isoformat(),  # Agregar un valor para 'date'
+                "description": "Búsqueda de dueño",  # Agregar una descripción predeterminada
+                "amount": 0.0  # Agregar un valor para 'amount'
+            }
+
+            try:
+                # Enviar la solicitud al microservicio
+                response = requests.post(url, json=payload)
+
+                if response.status_code == 200:
+                    data = response.json()
+
+                    # Mostrar información del dueño
+                    if "owner" in data:
+                        owner = data["owner"]
+                        st.write("### Información del Dueño")
+                        st.write(f"**Nombre:** {owner.get('name', 'No disponible')}")
+                        st.write(f"**DNI:** {owner.get('dni', 'No disponible')}")
+                        st.write(f"**Teléfono:** {owner.get('phone', 'No disponible')}")
+                        st.write(f"**Dirección:** {owner.get('address', 'No disponible')}")
+                        st.write(f"**Correo Electrónico:** {owner.get('email', 'No disponible')}")
+                        st.write(f"**Fecha de Registro:** {owner.get('date', 'No disponible')}")
+
+                    # Mostrar información de las mascotas
+                    if "pets" in data and data["pets"]:
+                        st.write("### Mascotas Asociadas")
+                        for pet in data["pets"]:
+                            st.write(f"- **Nombre:** {pet.get('pet_name', 'No disponible')}")
+                            st.write(f"  **Tipo:** {pet.get('pet_type', 'No disponible')}")
+                            st.write(f"  **Raza:** {pet.get('breed', 'No disponible')}")
+                            st.write(f"  **Fecha de Nacimiento:** {pet.get('birthdate', 'No disponible')}")
+                            st.write(f"  **Patologías Previas:** {pet.get('medical_conditions', 'No disponible')}")
+                            st.markdown("---")
+                    else:
+                        st.info("No se encontraron mascotas asociadas.")
+
+                else:
+                    st.error(f"Error al buscar el dueño: {response.text}")
+
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error al conectar con el servidor: {e}")
 
     # Botón para volver a la página principal
     if st.button('Volver'):
@@ -209,5 +251,6 @@ elif st.session_state.page == 'eliminar_dueño_mascota':
             st.error("Error al eliminar el dueño o mascota")
 
     # Botón para volver a la página principal
+    st.session_state.page = 'inicio'
     if st.button('Volver'):
-        st.session_state.page = 'inicio'
+        pass
