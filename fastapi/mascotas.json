@@ -1,0 +1,19 @@
+[
+  {
+    "owner_dni": "12345678A",
+    "pet_name": "Rex",
+    "pet_type": "Perro",
+    "breed": "Pastor Alemán",
+    "birthdate": "2020-05-01",
+    "medical_conditions": "Ninguna"
+  },
+  {
+    "owner_dni": "87654321B",
+    "pet_name": "Miau",
+    "pet_type": "Gato",
+    "breed": "Siames",
+    "birthdate": "2021-06-15",
+    "medical_conditions": "Alergia a los ácaros"
+  }
+]
+

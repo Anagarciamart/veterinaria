@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Juan Pérez",
+    "dni": "12345678A",
+    "address": "Calle Falsa 123",
+    "email": "juanperez@example.com",
+    "phone": "987654321"
+  },
+  {
+    "name": "Maria López",
+    "dni": "87654321B",
+    "address": "Avenida Siempre Viva 456",
+    "email": "maria@example.com",
+    "phone": "912345678"
+  }
+]
