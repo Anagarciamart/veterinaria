@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Union
+from typing import List
 
 app = FastAPI()
 
@@ -14,7 +14,6 @@ class Dueño(BaseModel):
     phone: str
     date: str = datetime.now().strftime("%Y-%m-%d")
 
-
 class Mascota(BaseModel):
     owner_dni: str
     pet_name: str
@@ -23,65 +22,53 @@ class Mascota(BaseModel):
     birthdate: str
     medical_conditions: str
 
-
 # Base de datos en memoria
 dueños_db: List[Dueño] = []
 mascotas_db: List[Mascota] = []
 
-
 # Endpoints
-
 @app.post("/registrar-dueño/")
 def registrar_dueño(dueño: Dueño):
-    # Verificar si el dueño ya está registrado
     for d in dueños_db:
         if d.dni == dueño.dni:
             raise HTTPException(status_code=400, detail="El DNI ya está registrado.")
-
-    # Agregar dueño a la lista en memoria
     dueños_db.append(dueño)
     return {"mensaje": "Dueño registrado con éxito."}
 
-
 @app.post("/registrar-mascota/")
 def registrar_mascota(mascota: Mascota):
-    # Verificar si el dueño está registrado
+    if mascota.pet_type not in ["Perro", "Gato"]:
+        raise HTTPException(status_code=400, detail="Solo se permiten mascotas de tipo 'Perro' o 'Gato'.")
+
     dueño = next((d for d in dueños_db if d.dni == mascota.owner_dni), None)
     if not dueño:
-        raise HTTPException(status_code=404, detail="Dueño no encontrado")
+        raise HTTPException(status_code=404, detail="Dueño no encontrado. Registre al dueño primero.")
 
-    # Agregar mascota a la lista en memoria
     mascotas_db.append(mascota)
     return {"mensaje": "Mascota registrada correctamente."}
 
-
-@app.get("/buscar-dueño/{dni_o_tel}")
-def buscar_dueño(dni_o_tel: str):
-    # Buscar dueño por DNI o teléfono
-    dueño = next((d for d in dueños_db if d.dni == dni_o_tel or d.phone == dni_o_tel), None)
+@app.get("/buscar-dueño/{dni}")
+def buscar_dueño(dni: str):
+    dueño = next((d for d in dueños_db if d.dni == dni), None)
     if not dueño:
-        raise HTTPException(status_code=404, detail="No se encontró un dueño con ese DNI o teléfono.")
+        raise HTTPException(status_code=404, detail="No se encontró un dueño con ese DNI.")
 
-    # Buscar las mascotas asociadas a este dueño
-    mascotas_dueño = [m for m in mascotas_db if m.owner_dni == dueño.dni]
+    mascotas_dueño = [m for m in mascotas_db if m.owner_dni == dni]
     return {"dueño": dueño, "mascotas": mascotas_dueño}
 
-
-@app.delete("/eliminar-dueño-y-mascotas/")
-def eliminar_dueño_y_mascotas(dni_o_tel: str):
+@app.delete("/eliminar-dueño/{dni}")
+def eliminar_dueño(dni: str):
     global dueños_db, mascotas_db
+    nuevo_dueños = [d for d in dueños_db if d.dni != dni]
+    nuevas_mascotas = [m for m in mascotas_db if m.owner_dni != dni]
 
-    # Buscar dueño por DNI o teléfono
-    dueño = next((d for d in dueños_db if d.dni == dni_o_tel or d.phone == dni_o_tel), None)
-    if not dueño:
-        raise HTTPException(status_code=404, detail="No se encontró un dueño con ese DNI o teléfono.")
+    if len(nuevo_dueños) == len(dueños_db):
+        raise HTTPException(status_code=404, detail="Dueño no encontrado.")
 
-    # Filtrar dueños y mascotas para eliminarlos
-    dueños_db = [d for d in dueños_db if d.dni != dueño.dni]
-    mascotas_db = [m for m in mascotas_db if m.owner_dni != dueño.dni]
+    dueños_db = nuevo_dueños
+    mascotas_db = nuevas_mascotas
 
     return {"mensaje": "Dueño y sus mascotas eliminados con éxito."}
-
 
 @app.delete("/eliminar-mascota/")
 def eliminar_mascota(data: Mascota):

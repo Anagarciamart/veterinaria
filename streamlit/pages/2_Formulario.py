@@ -12,12 +12,14 @@ menu = st.selectbox("Bienvenido al Sistema Veterinario, seleccione una opción",
     "Eliminar Dueño/Mascota"
 ])
 
+
 # Función para mostrar mensajes de error o éxito
 def mostrar_mensaje(respuesta):
     if respuesta.status_code == 200:
         st.success(respuesta.json()["mensaje"])
     else:
         st.error(f"Error: {respuesta.json()['detail']}")
+
 
 # Registrar Dueño
 if menu == "Registrar Dueño":
@@ -47,27 +49,55 @@ elif menu == "Registrar Mascota":
     with st.form("form_mascota"):
         owner_dni = st.text_input("DNI del Dueño")
         pet_name = st.text_input("Nombre de la Mascota")
-        pet_type = st.text_input("Tipo de Mascota (Perro o Gato)")
+        pet_type = st.radio("Tipo de Mascota", ["Perro", "Gato"])
         breed = st.text_input("Raza")
         birthdate = st.date_input("Fecha de Nacimiento")
         medical_conditions = st.text_input("Condiciones Médicas")
         enviado = st.form_submit_button("Registrar")
 
     if enviado:
+        # Verificar si el dueño ya existe
         respuesta_dueño = requests.get(f"{BACKEND_URL}/buscar-dueño/{owner_dni}")
-        if respuesta_dueño.status_code != 200:
+
+        if respuesta_dueño.status_code == 404:  # Dueño no existe, preguntar datos
+            st.warning("Dueño no encontrado. Por favor, ingrese los datos para registrarlo.")
+            with st.form("form_dueño_nuevo"):
+                name = st.text_input("Nombre del Dueño")
+                address = st.text_input("Dirección del Dueño")
+                email = st.text_input("Correo Electrónico")
+                phone = st.text_input("Teléfono")
+                registrar_dueño = st.form_submit_button("Registrar Dueño")
+
+            if registrar_dueño:
+                nuevo_dueño = {
+                    "name": name,
+                    "dni": owner_dni,
+                    "address": address,
+                    "email": email,
+                    "phone": phone,
+                }
+                respuesta_nuevo_dueño = requests.post(f"{BACKEND_URL}/registrar-dueño/", json=nuevo_dueño)
+                if respuesta_nuevo_dueño.status_code == 200:
+                    st.success("Dueño registrado con éxito. Procediendo a registrar la mascota...")
+                else:
+                    st.error(f"Error: {respuesta_nuevo_dueño.json()['detail']}")
+                    return
+
+        elif respuesta_dueño.status_code != 200:
             st.error(f"Error: {respuesta_dueño.json()['detail']}")
-        else:
-            mascota = {
-                "owner_dni": owner_dni,
-                "pet_name": pet_name,
-                "pet_type": pet_type,
-                "breed": breed,
-                "birthdate": str(birthdate),
-                "medical_conditions": medical_conditions
-            }
-            respuesta_mascota = requests.post(f"{BACKEND_URL}/registrar-mascota/", json=mascota)
-            mostrar_mensaje(respuesta_mascota)
+            return
+
+        # Registrar mascota después de verificar/crear el dueño
+        mascota = {
+            "owner_dni": owner_dni,
+            "pet_name": pet_name,
+            "pet_type": pet_type,
+            "breed": breed,
+            "birthdate": str(birthdate),
+            "medical_conditions": medical_conditions
+        }
+        respuesta_mascota = requests.post(f"{BACKEND_URL}/registrar-mascota/", json=mascota)
+        mostrar_mensaje(respuesta_mascota)
 
 # Buscar Dueño
 elif menu == "Buscar Dueño":
@@ -112,8 +142,7 @@ elif menu == "Eliminar Dueño/Mascota":
     # Gestión de Dueño
     elif opcion == "Dueño":
         st.subheader("Eliminar Dueño y Mascotas Asociadas")
-        dni = st.text_input("DNI del Dueño a eliminar")
-        telefono = st.text_input("Teléfono del Dueño a eliminar")
+        dni_o_tel = st.text_input("DNI o Teléfono del Dueño a eliminar")
 
         if st.button("Eliminar Dueño"):
             if dni_o_tel:
