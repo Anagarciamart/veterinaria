@@ -1,10 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import json
 from datetime import datetime
+from typing import List, Union
 
 app = FastAPI()
-
 
 # Modelos
 class Dueño(BaseModel):
@@ -25,93 +24,93 @@ class Mascota(BaseModel):
     medical_conditions: str
 
 
-# Funciones para manejar archivos JSON
-def leer_json(nombre_archivo):
-    try:
-        with open(nombre_archivo, "r", encoding="utf-8") as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return []  # Devuelve una lista vacía si el archivo no existe
-
-
-def escribir_json(nombre_archivo, datos):
-    with open(nombre_archivo, "w", encoding="utf-8") as file:
-        json.dump(datos, file, indent=4, ensure_ascii=False)
+# Base de datos en memoria
+dueños_db: List[Dueño] = []
+mascotas_db: List[Mascota] = []
 
 
 # Endpoints
+
 @app.post("/registrar-dueño/")
 def registrar_dueño(dueño: Dueño):
-    dueños = leer_json("dueño.json")
-    for d in dueños:
-        if d["dni"] == dueño.dni:
+    # Verificar si el dueño ya está registrado
+    for d in dueños_db:
+        if d.dni == dueño.dni:
             raise HTTPException(status_code=400, detail="El DNI ya está registrado.")
-    dueños.append(dueño.dict())
-    escribir_json("dueño.json", dueños)
+
+    # Agregar dueño a la lista en memoria
+    dueños_db.append(dueño)
     return {"mensaje": "Dueño registrado con éxito."}
 
 
 @app.post("/registrar-mascota/")
-def registrar_mascota(mascota: dict):
-    # Leer las listas de dueños y mascotas
-    dueños = leer_json("dueño.json")
-    mascotas_registradas = leer_json("mascota.json")
-
-    # Verificar si el dueño ya está registrado
-    dueño = next((d for d in dueños if d["dni"] == mascota["owner_dni"]), None)
+def registrar_mascota(mascota: Mascota):
+    # Verificar si el dueño está registrado
+    dueño = next((d for d in dueños_db if d.dni == mascota.owner_dni), None)
     if not dueño:
         raise HTTPException(status_code=404, detail="Dueño no encontrado")
 
-    # Agregar la nueva mascota a la lista de mascotas registradas
-    mascotas_registradas.append(mascota)
-
-    # Guardar los cambios
-    escribir_json("mascota.json", mascotas_registradas)
-
+    # Agregar mascota a la lista en memoria
+    mascotas_db.append(mascota)
     return {"mensaje": "Mascota registrada correctamente."}
 
-@app.get("/buscar-dueño/{dni}")
-def buscar_dueño(dni: str):
-    dueños = leer_json("dueño.json")
-    mascotas = leer_json("mascota.json")
 
-    dueño = next((d for d in dueños if d["dni"] == dni), None)
-    if dueño is None:
-        raise HTTPException(status_code=404, detail="No se encontró un dueño con ese DNI.")
+@app.get("/buscar-dueño/{dni_o_tel}")
+def buscar_dueño(dni_o_tel: str):
+    # Buscar dueño por DNI o teléfono
+    dueño = next((d for d in dueños_db if d.dni == dni_o_tel or d.phone == dni_o_tel), None)
+    if not dueño:
+        raise HTTPException(status_code=404, detail="No se encontró un dueño con ese DNI o teléfono.")
 
-    mascotas_dueño = [m for m in mascotas if m["owner_dni"] == dni]
+    # Buscar las mascotas asociadas a este dueño
+    mascotas_dueño = [m for m in mascotas_db if m.owner_dni == dueño.dni]
     return {"dueño": dueño, "mascotas": mascotas_dueño}
 
 
-@app.delete("/eliminar-dueño/{dni}")
-def eliminar_dueño(dni: str):
-    dueños = leer_json("dueño.json")
-    mascotas = leer_json("mascota.json")
+@app.delete("/eliminar-dueño-y-mascotas/")
+def eliminar_dueño_y_mascotas(dni_o_tel: str):
+    global dueños_db, mascotas_db
 
-    # Filtrar los dueños y mascotas para eliminar el dueño y sus mascotas asociadas
-    nuevo_dueños = [d for d in dueños if d["dni"] != dni]
-    nuevas_mascotas = [m for m in mascotas if m["owner_dni"] != dni]
+    # Buscar dueño por DNI o teléfono
+    dueño = next((d for d in dueños_db if d.dni == dni_o_tel or d.phone == dni_o_tel), None)
+    if not dueño:
+        raise HTTPException(status_code=404, detail="No se encontró un dueño con ese DNI o teléfono.")
 
-    if len(nuevo_dueños) == len(dueños):  # No se eliminó ningún dueño
-        raise HTTPException(status_code=404, detail="Dueño no encontrado.")
-
-    escribir_json("dueño.json", nuevo_dueños)
-    escribir_json("mascota.json", nuevas_mascotas)
+    # Filtrar dueños y mascotas para eliminarlos
+    dueños_db = [d for d in dueños_db if d.dni != dueño.dni]
+    mascotas_db = [m for m in mascotas_db if m.owner_dni != dueño.dni]
 
     return {"mensaje": "Dueño y sus mascotas eliminados con éxito."}
 
 
 @app.delete("/eliminar-mascota/")
-def eliminar_mascota(data: dict):
-    mascotas = leer_json("mascota.json")
+def eliminar_mascota(data: Mascota):
+    global mascotas_db
 
     # Filtrar las mascotas para eliminar la mascota específica
-    nuevas_mascotas = [m for m in mascotas if
-                       not (m["owner_dni"] == data["owner_dni"] and m["pet_name"] == data["pet_name"])]
+    nuevas_mascotas = [m for m in mascotas_db if
+                       not (m.owner_dni == data.owner_dni and m.pet_name == data.pet_name)]
 
-    if len(nuevas_mascotas) == len(mascotas):  # No se eliminó ninguna mascota
+    if len(nuevas_mascotas) == len(mascotas_db):  # No se eliminó ninguna mascota
         raise HTTPException(status_code=404, detail="Mascota no encontrada o datos incorrectos.")
 
-    escribir_json("mascota.json", nuevas_mascotas)
+    # Actualizar la base de datos en memoria
+    mascotas_db = nuevas_mascotas
 
     return {"mensaje": "Mascota eliminada con éxito."}
+
+
+@app.put("/actualizar-estado-mascota/")
+def actualizar_estado_mascota(data: dict):
+    global mascotas_db
+
+    # Buscar la mascota en la base de datos
+    mascota = next((m for m in mascotas_db if m.owner_dni == data["owner_dni"] and m.pet_name == data["pet_name"]), None)
+    if not mascota:
+        raise HTTPException(status_code=404, detail="Mascota no encontrada.")
+
+    # Actualizar el estado de la mascota
+    mascota_index = mascotas_db.index(mascota)
+    mascotas_db[mascota_index].medical_conditions += f"; Estado: {data['status']}"
+
+    return {"mensaje": "Estado de la mascota actualizado correctamente."}
