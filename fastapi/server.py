@@ -70,6 +70,26 @@ def buscar_dueno(dni_o_tel: str):
     mascotas_dueno = [m for m in mascotas_db if m.owner_dni == dueno.dni]
     return {"dueño": dueno, "mascotas": mascotas_dueno}
 
+@app.delete("/eliminar-dueño-y-mascotas/")
+def eliminar_dueno_y_mascotas(dni_o_tel: str):
+    """
+    Elimina un dueño y todas sus mascotas asociadas de la base de datos.
+    """
+    global duenos_db, mascotas_db
+
+    # Buscar dueño por DNI o teléfono
+    dueno = next((d for d in duenos_db if d.dni == dni_o_tel or d.phone == dni_o_tel), None)
+    if not dueno:
+        raise HTTPException(status_code=404, detail="No se encontró un dueño con ese DNI o teléfono.")
+
+    # Eliminar las mascotas asociadas al dueño
+    mascotas_db = [m for m in mascotas_db if m.owner_dni != dueno.dni]
+
+    # Eliminar al dueño
+    duenos_db = [d for d in duenos_db if d != dueno]
+
+    return {"mensaje": "Dueño y sus mascotas asociadas eliminados correctamente."}
+
 @app.delete("/eliminar-mascota/")
 def eliminar_mascota(data: dict):
     """

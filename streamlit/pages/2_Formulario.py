@@ -47,60 +47,84 @@ if menu == "Registrar Dueño":
 # Registrar Mascota
 elif menu == "Registrar Mascota":
     st.header("Registrar Mascota")
-    with st.form("form_mascota"):
-        owner_dni = st.text_input("DNI del Dueño")
-        pet_name = st.text_input("Nombre de la Mascota")
-        pet_type = st.radio("Tipo de Mascota", ["Perro", "Gato"])
-        breed = st.text_input("Raza")
-        birthdate = st.date_input("Fecha de Nacimiento")
-        medical_conditions = st.text_input("Condiciones Médicas")
-        enviado = st.form_submit_button("Registrar")
 
-    if enviado:
-        # Verificar si el dueño ya existe
-        respuesta_dueno = requests.get(f"{BACKEND_URL}/buscar-dueño/{owner_dni}")
+    # Primero, preguntar si el dueño existe
+    owner_exists = st.radio("¿El dueño ya está registrado?", ["Sí", "No"])
 
-        if respuesta_dueno.status_code == 404:  # Dueño no existe, pedir datos
-            st.warning("Dueño no encontrado. Por favor, ingrese los datos para registrarlo.")
-            with st.form("form_dueño_nuevo"):
-                name = st.text_input("Nombre del Dueño")
-                address = st.text_input("Dirección del Dueño")
-                email = st.text_input("Correo Electrónico")
-                phone = st.text_input("Teléfono")
-                registrar_dueno = st.form_submit_button("Registrar Dueño")
+    if owner_exists == "Sí":
+        # Formulario para dueño existente
+        with st.form("form_mascota_existente"):
+            owner_dni = st.text_input("DNI del Dueño")
+            pet_name = st.text_input("Nombre de la Mascota")
+            pet_type = st.radio("Tipo de Mascota", ["Perro", "Gato"])
+            breed = st.text_input("Raza")
+            birthdate = st.date_input("Fecha de Nacimiento")
+            medical_conditions = st.text_input("Condiciones Médicas")
+            enviado = st.form_submit_button("Registrar Mascota")
 
-            if registrar_dueno:
-                # Registrar al nuevo dueño en el backend
-                nuevo_dueno = {
-                    "name": name,
-                    "dni": owner_dni,  # Reutilizar el DNI ingresado en el formulario principal
-                    "address": address,
-                    "email": email,
-                    "phone": phone,
+        if enviado:
+            # Verificar si el dueño existe
+            respuesta_dueno = requests.get(f"{BACKEND_URL}/buscar-dueño/{owner_dni}")
+
+            if respuesta_dueno.status_code == 200:
+                # Registrar mascota para dueño existente
+                mascota = {
+                    "owner_dni": owner_dni,
+                    "pet_name": pet_name,
+                    "pet_type": pet_type,
+                    "breed": breed,
+                    "birthdate": str(birthdate),
+                    "medical_conditions": medical_conditions,
                 }
-                respuesta_nuevo_dueno = requests.post(f"{BACKEND_URL}/registrar-dueño/", json=nuevo_dueno)
+                respuesta_mascota = requests.post(f"{BACKEND_URL}/registrar-mascota/", json=mascota)
+                mostrar_mensaje(respuesta_mascota)
+            else:
+                st.error(f"Error: {respuesta_dueno.json()['detail']}")
 
-                if respuesta_nuevo_dueno.status_code == 200:
-                    st.success("Dueño registrado con éxito. Procediendo a registrar la mascota...")
-                else:
-                    st.error(f"Error: {respuesta_nuevo_dueno.json()['detail']}")
-                    st.stop()  # Detener la ejecución si no se pudo registrar el dueño
+    else:
+        # Formulario para registrar dueño y mascota simultáneamente
+        with st.form("form_mascota_nuevo_dueno"):
+            # Datos del dueño
+            name = st.text_input("Nombre del Dueño")
+            dni = st.text_input("DNI del Dueño")
+            address = st.text_input("Dirección")
+            email = st.text_input("Correo electrónico")
+            phone = st.text_input("Teléfono")
 
-        elif respuesta_dueno.status_code != 200:
-            st.error(f"Error: {respuesta_dueno.json()['detail']}")
-            st.stop()
+            # Datos de la mascota
+            pet_name = st.text_input("Nombre de la Mascota")
+            pet_type = st.radio("Tipo de Mascota", ["Perro", "Gato"])
+            breed = st.text_input("Raza")
+            birthdate = st.date_input("Fecha de Nacimiento")
+            medical_conditions = st.text_input("Condiciones Médicas")
 
-        # Registrar mascota después de verificar o crear el dueño
-        mascota = {
-            "owner_dni": owner_dni,
-            "pet_name": pet_name,
-            "pet_type": pet_type,
-            "breed": breed,
-            "birthdate": str(birthdate),
-            "medical_conditions": medical_conditions,
-        }
-        respuesta_mascota = requests.post(f"{BACKEND_URL}/registrar-mascota/", json=mascota)
-        mostrar_mensaje(respuesta_mascota)
+            enviado = st.form_submit_button("Registrar Dueño y Mascota")
+
+        if enviado:
+            # Primero registrar dueño
+            dueno = {
+                "name": name,
+                "dni": dni,
+                "address": address,
+                "email": email,
+                "phone": phone
+            }
+            respuesta_dueno = requests.post(f"{BACKEND_URL}/registrar-dueño/", json=dueno)
+
+            if respuesta_dueno.status_code == 200:
+                # Luego registrar mascota
+                mascota = {
+                    "owner_dni": dni,
+                    "pet_name": pet_name,
+                    "pet_type": pet_type,
+                    "breed": breed,
+                    "birthdate": str(birthdate),
+                    "medical_conditions": medical_conditions,
+                }
+                respuesta_mascota = requests.post(f"{BACKEND_URL}/registrar-mascota/", json=mascota)
+                mostrar_mensaje(respuesta_mascota)
+            else:
+                st.error(f"Error al registrar dueño: {respuesta_dueno.json()['detail']}")
 
 # Buscar Dueño
 elif menu == "Buscar Dueño":
