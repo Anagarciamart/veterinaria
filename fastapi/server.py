@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import List, Optional
 from datetime import datetime
-from typing import List
 
 app = FastAPI()
 
@@ -22,9 +22,25 @@ class Mascota(BaseModel):
     birthdate: str
     medical_conditions: str
 
+class Cita(BaseModel):
+    id: int
+    animal: str
+    dueno: str
+    tratamiento: str
+    fecha: str
+
+class Factura(BaseModel):
+    id_cita: int
+    tratamientos: List[str]
+    total: float
+    forma_pago: str
+    pagada: bool
+
 # Base de datos en memoria
 duenos_db: List[Dueno] = []
 mascotas_db: List[Mascota] = []
+citas = []
+facturas = []
 
 # Endpoints
 @app.post("/registrar-dueño/")
@@ -131,3 +147,38 @@ def actualizar_estado_mascota(data: dict):
     )
 
     return {"mensaje": f"Estado de la mascota actualizado a '{data['status']}' correctamente."}
+
+# Endpoints para citas
+@app.post("/citas/")
+def crear_cita(cita: Cita):
+    cita.id = len(citas) + 1  # Generar ID único
+    citas.append(cita)
+    return {"message": "Cita creada correctamente", "id": cita.id}
+
+@app.get("/citas/")
+def listar_citas():
+    return citas
+
+@app.put("/citas/{cita_id}")
+def actualizar_cita(cita_id: int, cita_actualizada: Cita):
+    for i, cita in enumerate(citas):
+        if cita.id == cita_id:
+            citas[i] = cita_actualizada
+            return {"message": "Cita actualizada correctamente"}
+    raise HTTPException(status_code=404, detail="Cita no encontrada")
+
+@app.delete("/citas/{cita_id}")
+def eliminar_cita(cita_id: int):
+    global citas
+    citas = [cita for cita in citas if cita.id != cita_id]
+    return {"message": "Cita eliminada correctamente"}
+
+# Endpoints para facturas
+@app.post("/facturas/")
+def crear_factura(factura: Factura):
+    facturas.append(factura)
+    return {"message": "Factura creada correctamente"}
+
+@app.get("/facturas/")
+def listar_facturas():
+    return facturas

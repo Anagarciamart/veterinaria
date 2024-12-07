@@ -25,6 +25,15 @@ def update_cita(cita_id, data):
         st.error(f"Error al actualizar cita: {e}")
         return None
 
+def delete_cita(cita_id):
+    try:
+        response = requests.delete(f"{backend}/{cita_id}")
+        return response.status_code
+    except Exception as e:
+        st.error(f"Error al eliminar cita: {e}")
+        return None
+
+# Popup para alta de citas
 @st.dialog("Información de la cita")
 def popup():
     st.write(f'Fecha de la cita: {st.session_state.get("time_inicial", "")}')
@@ -45,8 +54,7 @@ def popup():
         if envio == 200:
             st.success("Cita guardada con éxito, puede cerrar.")
         else:
-            st.error("Error al guardar la cita. Código de estado: {}".format(envio))
-
+            st.error("Error al guardar la cita.")
 
 mode = st.selectbox(
     "Calendar Mode:",
@@ -167,23 +175,30 @@ state = calendar(
     key='timegrid',
 )
 
+# Gestión de eventos del calendario
 if state.get('select') is not None:
     st.session_state["time_inicial"] = state["select"]["start"]
-    st.session_state["time_final"] = state["select"]["end"]
     popup()
 
 if state.get('eventChange') is not None:
     event_data = state['eventChange']['event']
     cita_id = event_data.get('id')
     new_data = {
-        "start": event_data.get('start'),
-        "end": event_data.get('end'),
+        "fecha": event_data.get('start'),
     }
     response_code = update_cita(cita_id, new_data)
     if response_code == 200:
-        st.success("Cita actualizada con éxito.")
+        st.success(f"Cita {cita_id} actualizada con éxito.")
     else:
-        st.error("Error al actualizar la cita. Código de estado: {}".format(response_code))
+        st.error(f"Error al actualizar la cita.")
 
-if st.session_state.get("fecha") is not None:
-    st.write('Fecha seleccionada:', st.session_state["fecha"])
+if state.get('eventClick') is not None:
+    event_data = state['eventClick']['event']
+    cita_id = event_data.get('id')
+
+    if st.button("Cancelar cita"):
+        response_code = delete_cita(cita_id)
+        if response_code == 200:
+            st.success(f"Cita {cita_id} cancelada con éxito.")
+        else:
+            st.error(f"Error al cancelar la cita.")
