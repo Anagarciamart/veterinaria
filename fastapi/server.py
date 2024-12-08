@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 from datetime import datetime
 
 app = FastAPI()
@@ -148,16 +148,12 @@ def actualizar_estado_mascota(data: dict):
 
     return {"mensaje": f"Estado de la mascota actualizado a '{data['status']}' correctamente."}
 
-# Endpoints para citas
+# Endpoints: Gestión de Citas
 @app.post("/citas/")
 def crear_cita(cita: Cita):
-    cita.id = len(citas) + 1  # Generar ID único
+    cita.id = len(citas) + 1
     citas.append(cita)
     return {"message": "Cita creada correctamente", "id": cita.id}
-
-@app.get("/citas/")
-def listar_citas():
-    return citas
 
 @app.put("/citas/{cita_id}")
 def actualizar_cita(cita_id: int, cita_actualizada: Cita):
@@ -173,7 +169,7 @@ def eliminar_cita(cita_id: int):
     citas = [cita for cita in citas if cita.id != cita_id]
     return {"message": "Cita eliminada correctamente"}
 
-# Endpoints para facturas
+# Endpoints: Gestión de Facturas
 @app.post("/facturas/")
 def crear_factura(factura: Factura):
     facturas.append(factura)

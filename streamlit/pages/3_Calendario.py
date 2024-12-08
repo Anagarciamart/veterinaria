@@ -7,54 +7,16 @@ import requests
 
 st.title("Gestión de citas 📆")
 
-backend = "http://fastapi:8000/citas"  # URL del backend FastAPI
+BACKEND_URL = "http://fastapi:8000/citas"  # URL del backend FastAPI
 
-def send(data):
-    try:
-        response = requests.post(backend, json=data)
-        return response.status_code
-    except Exception as e:
-        st.error(f"Error al enviar datos: {e}")
-        return None
 
-def update_cita(cita_id, data):
-    try:
-        response = requests.put(f"{backend}/{cita_id}", json=data)
-        return response.status_code
-    except Exception as e:
-        st.error(f"Error al actualizar cita: {e}")
-        return None
+def enviar_cita(cita):
+    respuesta = requests.post(f"{BACKEND_URL}/citas/", json=cita)
+    return respuesta
 
-def delete_cita(cita_id):
-    try:
-        response = requests.delete(f"{backend}/{cita_id}")
-        return response.status_code
-    except Exception as e:
-        st.error(f"Error al eliminar cita: {e}")
-        return None
-
-# Popup para alta de citas
-@st.dialog("Información de la cita")
-def popup():
-    st.write(f'Fecha de la cita: {st.session_state.get("time_inicial", "")}')
-    with st.form("cita_form"):
-        tratamiento = st.text_input("Ingrese el tratamiento:")
-        animal = st.text_input("Ingrese el nombre del animal:")
-        dueno = st.text_input("Ingrese el nombre del dueño:")
-        submitted = st.form_submit_button("Guardar")
-
-    if submitted:
-        data = {
-            "animal": animal,
-            "dueno": dueno,
-            "tratamiento": tratamiento,
-            "fecha": st.session_state.get("time_inicial", "")
-        }
-        envio = send(data)
-        if envio == 200:
-            st.success("Cita guardada con éxito, puede cerrar.")
-        else:
-            st.error("Error al guardar la cita.")
+def eliminar_cita(id_cita):
+    respuesta = requests.delete(f"{BACKEND_URL}/citas/{id_cita}")
+    return respuesta
 
 mode = st.selectbox(
     "Calendar Mode:",
@@ -72,6 +34,7 @@ mode = st.selectbox(
 
 events = [
     {
+        "id": "1",  # Añadido id único
         "title": "Consulta Perrito",
         "color": "#FF6C6C",
         "start": "2024-11-03",
@@ -79,13 +42,15 @@ events = [
         "resourceId": "a",
     },
     {
-        "title": "Consulta Gatito ",
+        "id": "2",  # Añadido id único
+        "title": "Consulta Gatito",
         "color": "#FFBD45",
         "start": "2024-11-01",
         "end": "2024-11-10",
         "resourceId": "b",
     },
     {
+        "id": "3",  # Añadido id único
         "title": "Consulta Perrito",
         "color": "#FF4B4B",
         "start": "2024-11-20",
@@ -93,6 +58,7 @@ events = [
         "resourceId": "c",
     },
     {
+        "id": "4",  # Añadido id único
         "title": "Consulta Gatito",
         "color": "#FF6C6C",
         "start": "2024-11-23",
@@ -100,6 +66,7 @@ events = [
         "resourceId": "d",
     },
     {
+        "id": "5",  # Añadido id único
         "title": "Consulta Loro",
         "color": "#FFBD45",
         "start": "2024-11-29",
@@ -107,6 +74,7 @@ events = [
         "resourceId": "e",
     },
     {
+        "id": "6",  # Añadido id único
         "title": "Consulta Guacamayo Ibérico",
         "color": "#FF4B4B",
         "start": "2024-11-28",
@@ -114,6 +82,7 @@ events = [
         "resourceId": "f",
     },
     {
+        "id": "7",  # Añadido id único
         "title": "Estudio",
         "color": "#FF4B4B",
         "start": "2024-11-01T08:30:00",
@@ -121,6 +90,7 @@ events = [
         "resourceId": "a",
     },
     {
+        "id": "8",  # Añadido id único
         "title": "Recados",
         "color": "#3D9DF3",
         "start": "2024-11-01T07:30:00",
@@ -128,14 +98,15 @@ events = [
         "resourceId": "b",
     },
     {
+        "id": "9",  # Añadido id único
         "title": "Revisión Perrito",
         "color": "#3DD56D",
         "start": "2024-11-02T10:40:00",
         "end": "2024-11-02T12:30:00",
         "resourceId": "c",
     },
-
 ]
+
 calendar_resources = [
     {"id": "a", "building": "Clinica 1", "title": "Consulta A"},
     {"id": "b", "building": "Clinica 1", "title": "Consulta A"},
@@ -175,30 +146,43 @@ state = calendar(
     key='timegrid',
 )
 
-# Gestión de eventos del calendario
-if state.get('select') is not None:
-    st.session_state["time_inicial"] = state["select"]["start"]
-    popup()
+# Alta de cita
+if state.get("select"):
+    st.sidebar.header("Registrar Cita")
+    with st.sidebar.form("form_cita"):
+        animal = st.text_input("Nombre del Animal")
+        dueno = st.text_input("Nombre del Dueño")
+        tratamiento = st.text_input("Tratamiento")
+        enviado = st.form_submit_button("Registrar")
 
-if state.get('eventChange') is not None:
-    event_data = state['eventChange']['event']
-    cita_id = event_data.get('id')
-    new_data = {
-        "fecha": event_data.get('start'),
-    }
-    response_code = update_cita(cita_id, new_data)
-    if response_code == 200:
-        st.success(f"Cita {cita_id} actualizada con éxito.")
-    else:
-        st.error(f"Error al actualizar la cita.")
-
-if state.get('eventClick') is not None:
-    event_data = state['eventClick']['event']
-    cita_id = event_data.get('id')
-
-    if st.button("Cancelar cita"):
-        response_code = delete_cita(cita_id)
-        if response_code == 200:
-            st.success(f"Cita {cita_id} cancelada con éxito.")
+    if enviado:
+        cita = {
+            "animal": animal,
+            "dueno": dueno,
+            "tratamiento": tratamiento,
+            "fecha": state["select"]["start"],
+        }
+        respuesta = enviar_cita(cita)
+        if respuesta.status_code == 200:
+            st.success("Cita registrada correctamente")
         else:
-            st.error(f"Error al cancelar la cita.")
+            st.error("Error al registrar cita")
+
+# Modificación o cancelación de citas
+if state.get("eventChange"):
+    # Verificamos que el evento tenga un id
+    if "id" in state["eventChange"]["event"]:
+        cita_id = state["eventChange"]["event"]["id"]
+        st.sidebar.header("Actualizar o Cancelar Cita")
+        with st.sidebar.form("form_actualizar"):
+            fecha = st.text_input("Nueva Fecha", value=state["eventChange"]["event"]["start"])
+            enviado = st.form_submit_button("Actualizar")
+
+        if enviado:
+            respuesta = eliminar_cita(cita_id)
+            if respuesta.status_code == 200:
+                st.success("Cita actualizada correctamente")
+            else:
+                st.error("Error al actualizar cita")
+    else:
+        st.error("Este evento no tiene un ID asignado.")
