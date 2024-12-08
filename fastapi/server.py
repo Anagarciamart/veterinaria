@@ -155,19 +155,26 @@ def crear_cita(cita: Cita):
     citas.append(cita)
     return {"message": "Cita creada correctamente", "id": cita.id}
 
-@app.put("/citas/{cita_id}")
-def actualizar_cita(cita_id: int, cita_actualizada: Cita):
-    for i, cita in enumerate(citas):
-        if cita.id == cita_id:
-            citas[i] = cita_actualizada
-            return {"message": "Cita actualizada correctamente"}
-    raise HTTPException(status_code=404, detail="Cita no encontrada")
+@app.put("/citas/{id}")
+def actualizar_cita(id: int, cita: Cita):
+    # Aquí buscarías la cita por id y la actualizarías
+    cita_encontrada = next((c for c in citas if c.id == id), None)
+    if cita_encontrada:
+        cita_encontrada.animal = cita.animal
+        cita_encontrada.dueno = cita.dueno
+        cita_encontrada.tratamiento = cita.tratamiento
+        cita_encontrada.fecha = cita.fecha
+        return {"mensaje": "Cita actualizada correctamente."}
+    else:
+        raise HTTPException(status_code=404, detail="Cita no encontrada.")
 
-@app.delete("/citas/{cita_id}")
-def eliminar_cita(cita_id: int):
+
+@app.delete("/citas/{id}")
+def eliminar_cita(id: int):
+    # Aquí eliminarías la cita por id
     global citas
-    citas = [cita for cita in citas if cita.id != cita_id]
-    return {"message": "Cita eliminada correctamente"}
+    citas = [cita for cita in citas if cita.id != id]
+    return {"mensaje": "Cita eliminada correctamente."}
 
 # Endpoints: Gestión de Facturas
 @app.post("/facturas/")

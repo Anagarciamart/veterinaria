@@ -146,7 +146,7 @@ state = calendar(
     key='timegrid',
 )
 
-# Alta de cita
+# Alta de cita en fecha seleccionada
 if state.get("select"):
     st.sidebar.header("Registrar Cita")
     with st.sidebar.form("form_cita"):
@@ -160,7 +160,7 @@ if state.get("select"):
             "animal": animal,
             "dueno": dueno,
             "tratamiento": tratamiento,
-            "fecha": state["select"]["start"],
+            "fecha": state["select"]["start"],  # La fecha seleccionada
         }
         respuesta = enviar_cita(cita)
         if respuesta.status_code == 200:
@@ -170,19 +170,35 @@ if state.get("select"):
 
 # Modificación o cancelación de citas
 if state.get("eventChange"):
-    # Verificamos que el evento tenga un id
     if "id" in state["eventChange"]["event"]:
         cita_id = state["eventChange"]["event"]["id"]
-        st.sidebar.header("Actualizar o Cancelar Cita")
+        event_title = state["eventChange"]["event"]["title"]
+        event_start = state["eventChange"]["event"]["start"]
+
+        st.sidebar.header(f"Actualizar o Cancelar Cita: {event_title}")
         with st.sidebar.form("form_actualizar"):
-            fecha = st.text_input("Nueva Fecha", value=state["eventChange"]["event"]["start"])
-            enviado = st.form_submit_button("Actualizar")
+            nueva_fecha = st.text_input("Nueva Fecha", value=event_start)
+            nuevo_titulo = st.text_input("Nuevo Título", value=event_title)
+            accion = st.radio("Acción", ["Actualizar", "Cancelar"])
+
+            enviado = st.form_submit_button("Aplicar")
 
         if enviado:
-            respuesta = eliminar_cita(cita_id)
-            if respuesta.status_code == 200:
-                st.success("Cita actualizada correctamente")
-            else:
-                st.error("Error al actualizar cita")
+            if accion == "Actualizar":
+                # Lógica para actualizar la cita
+                cita_actualizada = {
+                    "id": cita_id,
+                    "titulo": nuevo_titulo,
+                    "fecha": nueva_fecha
+                }
+                # Aquí deberías realizar la solicitud al backend para actualizar la cita
+                st.success("Cita actualizada correctamente.")
+            elif accion == "Cancelar":
+                # Lógica para cancelar (eliminar) la cita
+                respuesta = eliminar_cita(cita_id)
+                if respuesta.status_code == 200:
+                    st.success("Cita cancelada correctamente")
+                else:
+                    st.error("Error al cancelar cita.")
     else:
         st.error("Este evento no tiene un ID asignado.")
