@@ -27,7 +27,8 @@ class Cita(BaseModel):
     animal: str
     dueno: str
     tratamiento: str
-    fecha: str
+    fecha_inicio: str
+    fecha_fin: str
 
 class Factura(BaseModel):
     id_cita: int
@@ -39,7 +40,7 @@ class Factura(BaseModel):
 # Base de datos en memoria
 duenos_db: List[Dueno] = []
 mascotas_db: List[Mascota] = []
-citas = []
+citas_db = []
 facturas = []
 
 # Endpoints
@@ -151,30 +152,30 @@ def actualizar_estado_mascota(data: dict):
 # Endpoints: Gestión de Citas
 @app.post("/citas/")
 def crear_cita(cita: Cita):
-    cita.id = len(citas) + 1
-    citas.append(cita)
-    return {"message": "Cita creada correctamente", "id": cita.id}
+    nueva_id = len(citas_db) + 1
+    cita.id = nueva_id
+    citas_db.append(cita)
+    return {"message": "Cita creada correctamente", "id": nueva_id}
 
-@app.put("/citas/{id}")
-def actualizar_cita(id: int, cita: Cita):
-    # Aquí buscarías la cita por id y la actualizarías
-    cita_encontrada = next((c for c in citas if c.id == id), None)
-    if cita_encontrada:
-        cita_encontrada.animal = cita.animal
-        cita_encontrada.dueno = cita.dueno
-        cita_encontrada.tratamiento = cita.tratamiento
-        cita_encontrada.fecha = cita.fecha
-        return {"mensaje": "Cita actualizada correctamente."}
-    else:
-        raise HTTPException(status_code=404, detail="Cita no encontrada.")
+@app.get("/citas/")
+def listar_citas():
+    return citas_db
 
+@app.put("/citas/{cita_id}")
+def actualizar_cita(cita_id: int, cita_actualizada: Cita):
+    for cita in citas_db:
+        if cita.id == cita_id:
+            cita.tratamiento = cita_actualizada.tratamiento
+            cita.fecha_inicio = cita_actualizada.fecha_inicio
+            cita.fecha_fin = cita_actualizada.fecha_fin
+            return {"message": "Cita actualizada correctamente"}
+    raise HTTPException(status_code=404, detail="Cita no encontrada")
 
-@app.delete("/citas/{id}")
-def eliminar_cita(id: int):
-    # Aquí eliminarías la cita por id
-    global citas
-    citas = [cita for cita in citas if cita.id != id]
-    return {"mensaje": "Cita eliminada correctamente."}
+@app.delete("/citas/{cita_id}")
+def eliminar_cita(cita_id: int):
+    global citas_db
+    citas_db = [cita for cita in citas_db if cita.id != cita_id]
+    return {"message": "Cita eliminada correctamente"}
 
 # Endpoints: Gestión de Facturas
 @app.post("/facturas/")

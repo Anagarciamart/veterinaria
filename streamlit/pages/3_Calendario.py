@@ -9,14 +9,25 @@ st.title("Gestión de citas 📆")
 
 BACKEND_URL = "http://fastapi:8000/citas"  # URL del backend FastAPI
 
+# Funciones auxiliares
+def enviar_cita(tratamiento, inicio, fin):
+    data = {"tratamiento": tratamiento, "fecha_inicio": inicio, "fecha_fin": fin}
+    response = requests.post(BACKEND_URL, json=data)
+    return response
 
-def enviar_cita(cita):
-    respuesta = requests.post(f"{BACKEND_URL}/citas/", json=cita)
-    return respuesta
+def obtener_citas():
+    response = requests.get(BACKEND_URL)
+    if response.status_code == 200:
+        return response.json()
+    return []
 
-def eliminar_cita(id_cita):
-    respuesta = requests.delete(f"{BACKEND_URL}/citas/{id_cita}")
-    return respuesta
+def eliminar_cita(cita_id):
+    response = requests.delete(f"{BACKEND_URL}/{cita_id}")
+    return response
+
+# Estado inicial
+if "citas" not in st.session_state:
+    st.session_state["citas"] = obtener_citas()
 
 mode = st.selectbox(
     "Calendar Mode:",
@@ -146,59 +157,36 @@ state = calendar(
     key='timegrid',
 )
 
-# Alta de cita en fecha seleccionada
-if state.get("select"):
-    st.sidebar.header("Registrar Cita")
-    with st.sidebar.form("form_cita"):
-        animal = st.text_input("Nombre del Animal")
-        dueno = st.text_input("Nombre del Dueño")
+# Popup para registrar una nueva cita
+@st.dialog("Registrar Nueva Cita")
+def popup():
+    with st.form("form_cita"):
+        animal = st.text_input("Animal")
+        dueno = st.text_input("Dueño")
         tratamiento = st.text_input("Tratamiento")
         enviado = st.form_submit_button("Registrar")
 
-    if enviado:
-        cita = {
-            "animal": animal,
-            "dueno": dueno,
-            "tratamiento": tratamiento,
-            "fecha": state["select"]["start"],  # La fecha seleccionada
-        }
-        respuesta = enviar_cita(cita)
-        if respuesta.status_code == 200:
+    if enviado and tratamiento:
+        fecha_inicio = st.session_state["time_inicial"]
+        fecha_fin = st.session_state["time_final"]
+        response = enviar_cita(tratamiento, fecha_inicio, fecha_fin)
+        if response.status_code == 200:
+            st.session_state["citas"] = obtener_citas()
             st.success("Cita registrada correctamente")
         else:
-            st.error("Error al registrar cita")
+            st.error(f"Error al registrar cita: {response.status_code}")
 
-# Modificación o cancelación de citas
+# Gestión de eventos del calendario
+if state.get("select"):
+    st.session_state["time_inicial"] = state["select"]["start"]
+    st.session_state["time_final"] = state["select"]["end"]
+    popup()
+
 if state.get("eventChange"):
-    if "id" in state["eventChange"]["event"]:
-        cita_id = state["eventChange"]["event"]["id"]
-        event_title = state["eventChange"]["event"]["title"]
-        event_start = state["eventChange"]["event"]["start"]
-
-        st.sidebar.header(f"Actualizar o Cancelar Cita: {event_title}")
-        with st.sidebar.form("form_actualizar"):
-            nueva_fecha = st.text_input("Nueva Fecha", value=event_start)
-            nuevo_titulo = st.text_input("Nuevo Título", value=event_title)
-            accion = st.radio("Acción", ["Actualizar", "Cancelar"])
-
-            enviado = st.form_submit_button("Aplicar")
-
-        if enviado:
-            if accion == "Actualizar":
-                # Lógica para actualizar la cita
-                cita_actualizada = {
-                    "id": cita_id,
-                    "titulo": nuevo_titulo,
-                    "fecha": nueva_fecha
-                }
-                # Aquí deberías realizar la solicitud al backend para actualizar la cita
-                st.success("Cita actualizada correctamente.")
-            elif accion == "Cancelar":
-                # Lógica para cancelar (eliminar) la cita
-                respuesta = eliminar_cita(cita_id)
-                if respuesta.status_code == 200:
-                    st.success("Cita cancelada correctamente")
-                else:
-                    st.error("Error al cancelar cita.")
+    cita_id = state["eventChange"]["event"]["id"]
+    response = eliminar_cita(cita_id)
+    if response.status_code == 200:
+        st.session_state["citas"] = obtener_citas()
+        st.success("Cita eliminada correctamente")
     else:
-        st.error("Este evento no tiene un ID asignado.")
+        st.error(f"Error al eliminar cita: {response.status_code}")
