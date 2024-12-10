@@ -29,9 +29,8 @@ def obtener_citas():
 
 def actualizar_cita(cita_id, inicio, fin, tratamiento):
     data = {
-        "id": cita_id,
-        "animal": "Desconocido",  # Asegúrate de enviar datos completos
-        "dueno": "Desconocido",
+        "animal": "Actualizado",
+        "dueno": "Actualizado",
         "tratamiento": tratamiento,
         "fecha_inicio": inicio,
         "fecha_fin": fin,
@@ -155,6 +154,73 @@ calendar_options = {
     "resourceGroupField": "building",
 }
 
+if "resource" in mode:
+    if mode == "resource-daygrid":
+        calendar_options = {
+            **calendar_options,
+            "initialDate": "2024-11-01",
+            "initialView": "resourceDayGridDay",
+            "resourceGroupField": "building",
+        }
+    elif mode == "resource-timeline":
+        calendar_options = {
+            **calendar_options,
+            "headerToolbar": {
+                "left": "today prev,next",
+                "center": "title",
+                "right": "resourceTimelineDay,resourceTimelineWeek,resourceTimelineMonth",
+            },
+            "initialDate": "2024-11-01",
+            "initialView": "resourceTimelineDay",
+            "resourceGroupField": "building",
+        }
+    elif mode == "resource-timegrid":
+        calendar_options = {
+            **calendar_options,
+            "initialDate": "2023-07-01",
+            "initialView": "resourceTimeGridDay",
+            "resourceGroupField": "building",
+        }
+else:
+    if mode == "daygrid":
+        calendar_options = {
+            **calendar_options,
+            "headerToolbar": {
+                "left": "today prev,next",
+                "center": "title",
+                "right": "dayGridDay,dayGridWeek,dayGridMonth",
+            },
+            "initialDate": "2024-11-01",
+            "initialView": "dayGridMonth",
+        }
+    elif mode == "timegrid":
+        calendar_options = {
+            **calendar_options,
+            "initialView": "timeGridWeek",
+        }
+    elif mode == "timeline":
+        calendar_options = {
+            **calendar_options,
+            "headerToolbar": {
+                "left": "today prev,next",
+                "center": "title",
+                "right": "timelineDay,timelineWeek,timelineMonth",
+            },
+            "initialDate": "2024-11-01",
+            "initialView": "timelineMonth",
+        }
+    elif mode == "list":
+        calendar_options = {
+            **calendar_options,
+            "initialDate": "2024-11-01",
+            "initialView": "listMonth",
+        }
+    elif mode == "multimonth":
+        calendar_options = {
+            **calendar_options,
+            "initialView": "multiMonthYear",
+        }
+
 state = calendar(
     events=st.session_state.get("events", events),
     options=calendar_options,
@@ -172,53 +238,45 @@ state = calendar(
         font-size: 2rem;
     }
     """,
-    key='timegrid',
+    key=mode,
 )
 
 # Manejo de clic en un evento
-if state.get("eventClick"):
-    evento_id = state["eventClick"]["event"]["id"]
-    st.session_state["evento_id"] = evento_id
-    st.info(f"Evento seleccionado: {evento_id}")
-    if st.button("Cancelar cita"):
-        evento_id = int(st.session_state["evento_id"])  # Convertir a entero si el backend espera números
-        response = eliminar_cita(evento_id)
-        if response.status_code == 200:
-            st.session_state["citas"] = obtener_citas()  # Sincronizar estado
-            st.success("Cita eliminada correctamente")
-        else:
-            st.error(f"Error al eliminar cita: {response.status_code}. Respuesta del servidor: {response.text}")
-
-# Popup para registrar una nueva cita
 if state.get("select"):
-    with st.form("form_cita"):
+    with st.form("registro_cita"):
         animal = st.text_input("Animal")
         dueno = st.text_input("Dueño")
         tratamiento = st.text_input("Tratamiento")
         enviado = st.form_submit_button("Registrar")
     if enviado:
-        fecha_inicio = state["select"]["start"]
-        fecha_fin = state["select"]["end"]
-        st.write(f"Datos enviados: animal={animal}, dueno={dueno}, tratamiento={tratamiento}, inicio={fecha_inicio}, fin={fecha_fin}")
-        response = enviar_cita(animal, dueno, tratamiento, fecha_inicio, fecha_fin)
-        if response and response.status_code == 200:
+        inicio = state["select"]["start"]
+        fin = state["select"]["end"]
+        response = enviar_cita(animal, dueno, tratamiento, inicio, fin)
+        if response.status_code == 200:
             st.session_state["citas"] = obtener_citas()
             st.success("Cita registrada correctamente")
         else:
-            st.error("Error al registrar cita")
-            if response:
-                st.write("Detalles:", response.json())
+            st.error(f"Error: {response.text}")
 
-# Manejo de eventos modificados
+if state.get("eventClick"):
+    evento_id = state["eventClick"]["event"]["id"]
+    st.info(f"Evento seleccionado: {evento_id}")
+    if st.button("Eliminar cita"):
+        response = eliminar_cita(evento_id)
+        if response.status_code == 200:
+            st.session_state["citas"] = obtener_citas()
+            st.success("Cita eliminada correctamente")
+        else:
+            st.error(f"Error al eliminar cita: {response.text}")
+
 if state.get("eventChange"):
-    evento_id = int(state["eventChange"]["event"]["id"])  # Convertir a entero si es necesario
-    inicio = state["eventChange"]["event"]["start"][:-5]  # Remover milisegundos
-    fin = state["eventChange"]["event"]["end"][:-5]
+    evento_id = state["eventChange"]["event"]["id"]
+    inicio = state["eventChange"]["event"]["start"]
+    fin = state["eventChange"]["event"]["end"]
     tratamiento = state["eventChange"]["event"]["title"]
-
     response = actualizar_cita(evento_id, inicio, fin, tratamiento)
     if response.status_code == 200:
         st.session_state["citas"] = obtener_citas()
-        st.success("Cita modificada correctamente")
+        st.success("Cita actualizada correctamente")
     else:
-        st.error(f"Error al modificar cita: {response.status_code}")
+        st.error(f"Error al actualizar cita: {response.text}")

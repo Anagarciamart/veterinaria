@@ -23,12 +23,12 @@ class Mascota(BaseModel):
     medical_conditions: str
 
 class Cita(BaseModel):
-    id: int
+    id: int = None
     animal: str
     dueno: str
     tratamiento: str
-    fecha_inicio: str
-    fecha_fin: str
+    fecha_inicio: datetime
+    fecha_fin: datetime
 
 class Factura(BaseModel):
     id_cita: int
@@ -153,14 +153,10 @@ def actualizar_estado_mascota(data: dict):
 # Endpoints de Gestión de Citas
 @app.get("/citas", response_model=List[Cita])
 def obtener_citas():
-    """
-    Obtener todas las citas registradas.
-    """
     return citas_db
 
 @app.post("/citas", response_model=Cita)
 def crear_cita(cita: Cita):
-    print(f"Datos recibidos: {cita}")  # Verificar datos recibidos
     global id_counter
     cita.id = id_counter
     id_counter += 1
@@ -169,22 +165,19 @@ def crear_cita(cita: Cita):
 
 @app.put("/citas/{cita_id}", response_model=Cita)
 def actualizar_cita(cita_id: int, cita_actualizada: Cita):
-    print(f"Buscando cita con ID: {cita_id}")  # Debug
     for index, cita in enumerate(citas_db):
         if cita.id == cita_id:
+            cita_actualizada.id = cita_id
             citas_db[index] = cita_actualizada
-            citas_db[index].id = cita_id
-            return citas_db[index]
+            return cita_actualizada
     raise HTTPException(status_code=404, detail="Cita no encontrada")
 
 @app.delete("/citas/{cita_id}")
 def eliminar_cita(cita_id: int):
-    print(f"Intentando eliminar cita con ID: {cita_id}")  # Depuración
     for index, cita in enumerate(citas_db):
         if cita.id == cita_id:
             del citas_db[index]
-            print(f"Cita eliminada: {cita_id}")  # Depuración
-            return {"message": "Cita eliminada"}
+            return {"message": "Cita eliminada correctamente"}
     raise HTTPException(status_code=404, detail="Cita no encontrada")
 
 # Endpoints: Gestión de Facturas
