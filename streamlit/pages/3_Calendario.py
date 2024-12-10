@@ -10,8 +10,14 @@ st.title("Gestión de citas 📆")
 BACKEND_URL = "http://fastapi:8000/citas"  # URL del backend FastAPI
 
 # Funciones auxiliares
-def enviar_cita(tratamiento, inicio, fin):
-    data = {"tratamiento": tratamiento, "fecha_inicio": inicio, "fecha_fin": fin}
+def enviar_cita(animal, dueno, tratamiento, inicio, fin):
+    data = {
+        "animal": animal,
+        "dueno": dueno,
+        "tratamiento": tratamiento,
+        "fecha_inicio": inicio,
+        "fecha_fin": fin,
+    }
     response = requests.post(BACKEND_URL, json=data)
     return response
 
@@ -20,6 +26,18 @@ def obtener_citas():
     if response.status_code == 200:
         return response.json()
     return []
+
+def actualizar_cita(cita_id, inicio, fin, tratamiento):
+    data = {
+        "id": cita_id,
+        "animal": "Desconocido",  # Asegúrate de enviar datos completos
+        "dueno": "Desconocido",
+        "tratamiento": tratamiento,
+        "fecha_inicio": inicio,
+        "fecha_fin": fin,
+    }
+    response = requests.put(f"{BACKEND_URL}/{cita_id}", json=data)
+    return response
 
 def eliminar_cita(cita_id):
     response = requests.delete(f"{BACKEND_URL}/{cita_id}")
@@ -157,34 +175,43 @@ state = calendar(
     key='timegrid',
 )
 
+# Manejo de clic en un evento
+if state.get("eventClick"):
+    evento_id = state["eventClick"]["event"]["id"]
+    st.session_state["evento_id"] = evento_id
+    st.info(f"Evento seleccionado: {evento_id}")
+    if st.button("Cancelar cita"):
+        response = eliminar_cita(evento_id)
+        if response.status_code == 200:
+            st.session_state["citas"] = obtener_citas()
+            st.success("Cita eliminada correctamente")
+        else:
+            st.error(f"Error al eliminar cita: {response.status_code}")
+
 # Popup para registrar una nueva cita
-@st.dialog("Registrar Nueva Cita")
-def popup():
+if state.get("select"):
     with st.form("form_cita"):
         animal = st.text_input("Animal")
         dueno = st.text_input("Dueño")
         tratamiento = st.text_input("Tratamiento")
         enviado = st.form_submit_button("Registrar")
-
-    if enviado and tratamiento:
-        fecha_inicio = st.session_state["time_inicial"]
-        fecha_fin = st.session_state["time_final"]
-        response = enviar_cita(tratamiento, fecha_inicio, fecha_fin)
+    if enviado:
+        fecha_inicio = state["select"]["start"]
+        fecha_fin = state["select"]["end"]
+        response = enviar_cita(animal, dueno, tratamiento, fecha_inicio, fecha_fin)
         if response.status_code == 200:
             st.session_state["citas"] = obtener_citas()
             st.success("Cita registrada correctamente")
         else:
             st.error(f"Error al registrar cita: {response.status_code}")
 
-# Gestión de eventos del calendario
-if state.get("select"):
-    st.session_state["time_inicial"] = state["select"]["start"]
-    st.session_state["time_final"] = state["select"]["end"]
-    popup()
-
+# Manejo de eventos modificados
 if state.get("eventChange"):
-    cita_id = state["eventChange"]["event"]["id"]
-    response = eliminar_cita(cita_id)
+    evento_id = state["eventChange"]["event"]["id"]
+    inicio = state["eventChange"]["event"]["start"]
+    fin = state["eventChange"]["event"]["end"]
+    tratamiento = state["eventChange"]["event"]["title"]
+    response = actualizar_cita(evento_id, inicio, fin, tratamiento)
     if response.status_code == 200:
         st.session_state["citas"] = obtener_citas()
         st.success("Cita modificada correctamente")

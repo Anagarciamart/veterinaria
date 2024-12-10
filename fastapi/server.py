@@ -149,20 +149,33 @@ def actualizar_estado_mascota(data: dict):
 
     return {"mensaje": f"Estado de la mascota actualizado a '{data['status']}' correctamente."}
 
-# Endpoints: Gestión de Citas
+# Endpoints de Gestión de Citas
 @app.post("/citas/")
 def crear_cita(cita: Cita):
-    nueva_id = len(citas_db) + 1
-    cita.id = nueva_id
-    citas_db.append(cita)
-    return {"message": "Cita creada correctamente", "id": nueva_id}
+    """
+    Crea una nueva cita, asignando automáticamente un ID único.
+    """
+    try:
+        nueva_id = len(citas_db) + 1
+        cita.id = nueva_id
+        citas_db.append(cita)
+        return {"message": "Cita creada correctamente", "id": nueva_id}
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Error al crear la cita: {str(e)}")
+
 
 @app.get("/citas/")
 def listar_citas():
+    """
+    Lista todas las citas registradas.
+    """
     return citas_db
 
 @app.put("/citas/{cita_id}")
 def actualizar_cita(cita_id: int, cita_actualizada: Cita):
+    """
+    Actualiza una cita existente.
+    """
     for cita in citas_db:
         if cita.id == cita_id:
             cita.tratamiento = cita_actualizada.tratamiento
@@ -173,9 +186,16 @@ def actualizar_cita(cita_id: int, cita_actualizada: Cita):
 
 @app.delete("/citas/{cita_id}")
 def eliminar_cita(cita_id: int):
+    """
+    Elimina una cita específica por su ID.
+    """
     global citas_db
-    citas_db = [cita for cita in citas_db if cita.id != cita_id]
-    return {"message": "Cita eliminada correctamente"}
+    cita_a_eliminar = next((cita for cita in citas_db if cita.id == cita_id), None)
+    if not cita_a_eliminar:
+        raise HTTPException(status_code=404, detail="Cita no encontrada")
+    citas_db.remove(cita_a_eliminar)
+    return {"message": "Cita eliminada correctamente", "id": cita_id}
+
 
 # Endpoints: Gestión de Facturas
 @app.post("/facturas/")
