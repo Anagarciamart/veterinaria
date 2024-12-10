@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 app = FastAPI()
@@ -23,26 +23,28 @@ class Mascota(BaseModel):
     medical_conditions: str
 
 class Cita(BaseModel):
-    id: int = None
-    animal: str
-    dueno: str
-    tratamiento: str
-    fecha_inicio: datetime
-    fecha_fin: datetime
+    id: int
+    owner_dni: str
+    pet_name: str
+    treatment: str
+    start_time: datetime
+    end_time: datetime
+    status: str = "Pendiente"  # Pendiente, Finalizada, Cancelada
 
 class Factura(BaseModel):
-    id_cita: int
-    tratamientos: List[str]
-    total: float
-    forma_pago: str
-    pagada: bool
+    id: int
+    cita_id: int
+    treatments: List[str]
+    total_cost: float
+    payment_method: str
+    is_paid: bool
+    issue_date: datetime = datetime.now()
 
 # Base de datos en memoria
 duenos_db: List[Dueno] = []
 mascotas_db: List[Mascota] = []
-citas_db = []
-id_counter = 1
-facturas = []
+citas_db: List[Cita] = []
+facturas_db: List[Factura] = []
 
 # Endpoints
 @app.post("/registrar-dueño/")
@@ -151,41 +153,51 @@ def actualizar_estado_mascota(data: dict):
     return {"mensaje": f"Estado de la mascota actualizado a '{data['status']}' correctamente."}
 
 # Endpoints de Gestión de Citas
-@app.get("/citas", response_model=List[Cita])
-def obtener_citas():
-    return citas_db
-
-@app.post("/citas", response_model=Cita)
+@app.post("/crear-cita/")
 def crear_cita(cita: Cita):
-    global id_counter
-    cita.id = id_counter
-    id_counter += 1
+    for c in citas_db:
+        if c.start_time == cita.start_time:
+            raise HTTPException(status_code=400, detail="Ya existe una cita en el mismo horario.")
     citas_db.append(cita)
-    return cita
+    return {"mensaje": "Cita creada exitosamente."}
 
-@app.put("/citas/{cita_id}", response_model=Cita)
-def actualizar_cita(cita_id: int, cita_actualizada: Cita):
-    for index, cita in enumerate(citas_db):
-        if cita.id == cita_id:
-            cita_actualizada.id = cita_id
-            citas_db[index] = cita_actualizada
-            return cita_actualizada
-    raise HTTPException(status_code=404, detail="Cita no encontrada")
+@app.put("/modificar-cita/{cita_id}")
+def modificar_cita(cita_id: int, nueva_fecha: datetime):
+    cita = next((c for c in citas_db if c.id == cita_id), None)
+    if not cita:
+        raise HTTPException(status_code=404, detail="Cita no encontrada.")
+    cita.start_time = nueva_fecha
+    return {"mensaje": "Cita modificada exitosamente."}
 
-@app.delete("/citas/{cita_id}")
-def eliminar_cita(cita_id: int):
-    for index, cita in enumerate(citas_db):
-        if cita.id == cita_id:
-            del citas_db[index]
-            return {"message": "Cita eliminada correctamente"}
-    raise HTTPException(status_code=404, detail="Cita no encontrada")
+@app.delete("/cancelar-cita/{cita_id}")
+def cancelar_cita(cita_id: int):
+    cita = next((c for c in citas_db if c.id == cita_id), None)
+    if not cita:
+        raise HTTPException(status_code=404, detail="Cita no encontrada.")
+    cita.status = "Cancelada"
+    return {"mensaje": "Cita cancelada."}
 
-# Endpoints: Gestión de Facturas
-@app.post("/facturas/")
-def crear_factura(factura: Factura):
-    facturas.append(factura)
-    return {"message": "Factura creada correctamente"}
+@app.post("/finalizar-cita/{cita_id}")
+def finalizar_cita(cita_id: int, treatments: List[str], total_cost: float, payment_method: str):
+    cita = next((c for c in citas_db if c.id == cita_id), None)
+    if not cita:
+        raise HTTPException(status_code=404, detail="Cita no encontrada.")
+    cita.status = "Finalizada"
+    factura = Factura(
+        id=len(facturas_db) + 1,
+        cita_id=cita.id,
+        treatments=treatments,
+        total_cost=total_cost,
+        payment_method=payment_method,
+        is_paid=False
+    )
+    facturas_db.append(factura)
+    return {"mensaje": "Cita finalizada y factura generada.", "factura": factura}
 
-@app.get("/facturas/")
-def listar_facturas():
-    return facturas
+@app.put("/pagar-factura/{factura_id}")
+def pagar_factura(factura_id: int):
+    factura = next((f for f in facturas_db if f.id == factura_id), None)
+    if not factura:
+        raise HTTPException(status_code=404, detail="Factura no encontrada.")
+    factura.is_paid = True
+    return {"mensaje": "Factura marcada como pagada."}

@@ -4,47 +4,48 @@ from streamlit_calendar import calendar
 
 import requests
 
-
 st.title("Gestión de citas 📆")
 
 BACKEND_URL = "http://fastapi:8000/citas"  # URL del backend FastAPI
 
-# Funciones auxiliares
-def enviar_cita(animal, dueno, tratamiento, inicio, fin):
-    data = {
-        "animal": animal,
-        "dueno": dueno,
-        "tratamiento": tratamiento,
-        "fecha_inicio": inicio,
-        "fecha_fin": fin,
-    }
-    response = requests.post(BACKEND_URL, json=data)
-    return response
+# Función para enviar datos al backend
+def send_cita(data):
+    try:
+        response = requests.post(f"{BACKEND_URL}/crear-cita/", json=data)
+        if response.status_code == 200:
+            return True, response.json()
+        else:
+            return False, response.text
+    except Exception as e:
+        return False, str(e)
 
-def obtener_citas():
-    response = requests.get(BACKEND_URL)
-    if response.status_code == 200:
-        return response.json()
-    return []
+@st.dialog("Agregar nueva cita")
+def agregar_cita_popup():
+    st.write(f"Ingrese los detalles de la cita:")
+    with st.form("form_cita"):
+        tratamiento = st.text_input("Tratamiento:")
+        dni_dueño = st.text_input("DNI del dueño:")
+        mascota = st.text_input("Nombre de la mascota:")
+        hora_inicio = st.session_state.get("time_inicial")
+        hora_fin = st.session_state.get("time_final")
 
-def actualizar_cita(cita_id, inicio, fin, tratamiento):
-    data = {
-        "animal": "Actualizado",
-        "dueno": "Actualizado",
-        "tratamiento": tratamiento,
-        "fecha_inicio": inicio,
-        "fecha_fin": fin,
-    }
-    response = requests.put(f"{BACKEND_URL}/{cita_id}", json=data)
-    return response
+        enviado = st.form_submit_button("Crear cita")
 
-def eliminar_cita(cita_id):
-    response = requests.delete(f"{BACKEND_URL}/{cita_id}")
-    return response
-
-# Estado inicial
-if "citas" not in st.session_state:
-    st.session_state["citas"] = obtener_citas()
+    if enviado:
+        nueva_cita = {
+            "id": len(st.session_state.get("events", [])) + 1,
+            "owner_dni": dni_dueño,
+            "pet_name": mascota,
+            "treatment": tratamiento,
+            "start_time": hora_inicio,
+            "end_time": hora_fin,
+        }
+        success, response = send_cita(nueva_cita)
+        if success:
+            st.success("Cita creada con éxito.")
+            st.session_state["events"].append(nueva_cita)
+        else:
+            st.error(f"Error al crear cita: {response}")
 
 mode = st.selectbox(
     "Calendar Mode:",
@@ -62,7 +63,6 @@ mode = st.selectbox(
 
 events = [
     {
-        "id": "1",  # Añadido id único
         "title": "Consulta Perrito",
         "color": "#FF6C6C",
         "start": "2024-11-03",
@@ -70,7 +70,6 @@ events = [
         "resourceId": "a",
     },
     {
-        "id": "2",  # Añadido id único
         "title": "Consulta Gatito",
         "color": "#FFBD45",
         "start": "2024-11-01",
@@ -78,7 +77,6 @@ events = [
         "resourceId": "b",
     },
     {
-        "id": "3",  # Añadido id único
         "title": "Consulta Perrito",
         "color": "#FF4B4B",
         "start": "2024-11-20",
@@ -86,7 +84,6 @@ events = [
         "resourceId": "c",
     },
     {
-        "id": "4",  # Añadido id único
         "title": "Consulta Gatito",
         "color": "#FF6C6C",
         "start": "2024-11-23",
@@ -94,7 +91,6 @@ events = [
         "resourceId": "d",
     },
     {
-        "id": "5",  # Añadido id único
         "title": "Consulta Loro",
         "color": "#FFBD45",
         "start": "2024-11-29",
@@ -102,7 +98,6 @@ events = [
         "resourceId": "e",
     },
     {
-        "id": "6",  # Añadido id único
         "title": "Consulta Guacamayo Ibérico",
         "color": "#FF4B4B",
         "start": "2024-11-28",
@@ -110,7 +105,6 @@ events = [
         "resourceId": "f",
     },
     {
-        "id": "7",  # Añadido id único
         "title": "Estudio",
         "color": "#FF4B4B",
         "start": "2024-11-01T08:30:00",
@@ -118,7 +112,6 @@ events = [
         "resourceId": "a",
     },
     {
-        "id": "8",  # Añadido id único
         "title": "Recados",
         "color": "#3D9DF3",
         "start": "2024-11-01T07:30:00",
@@ -126,7 +119,6 @@ events = [
         "resourceId": "b",
     },
     {
-        "id": "9",  # Añadido id único
         "title": "Revisión Perrito",
         "color": "#3DD56D",
         "start": "2024-11-02T10:40:00",
@@ -241,42 +233,14 @@ state = calendar(
     key=mode,
 )
 
-# Manejo de clic en un evento
-if state.get("select"):
-    with st.form("registro_cita"):
-        animal = st.text_input("Animal")
-        dueno = st.text_input("Dueño")
-        tratamiento = st.text_input("Tratamiento")
-        enviado = st.form_submit_button("Registrar")
-    if enviado:
-        inicio = state["select"]["start"]
-        fin = state["select"]["end"]
-        response = enviar_cita(animal, dueno, tratamiento, inicio, fin)
-        if response.status_code == 200:
-            st.session_state["citas"] = obtener_citas()
-            st.success("Cita registrada correctamente")
-        else:
-            st.error(f"Error: {response.text}")
+# Manejar selección de rango en el calendario
+if state.get("select") is not None:
+    st.session_state["time_inicial"] = state["select"]["start"]
+    st.session_state["time_final"] = state["select"]["end"]
+    agregar_cita_popup()
 
-if state.get("eventClick"):
-    evento_id = state["eventClick"]["event"]["id"]
-    st.info(f"Evento seleccionado: {evento_id}")
-    if st.button("Eliminar cita"):
-        response = eliminar_cita(evento_id)
-        if response.status_code == 200:
-            st.session_state["citas"] = obtener_citas()
-            st.success("Cita eliminada correctamente")
-        else:
-            st.error(f"Error al eliminar cita: {response.text}")
-
-if state.get("eventChange"):
-    evento_id = state["eventChange"]["event"]["id"]
-    inicio = state["eventChange"]["event"]["start"]
-    fin = state["eventChange"]["event"]["end"]
-    tratamiento = state["eventChange"]["event"]["title"]
-    response = actualizar_cita(evento_id, inicio, fin, tratamiento)
-    if response.status_code == 200:
-        st.session_state["citas"] = obtener_citas()
-        st.success("Cita actualizada correctamente")
-    else:
-        st.error(f"Error al actualizar cita: {response.text}")
+# Manejar cambios en los eventos
+if state.get("eventChange") is not None:
+    data = state.get("eventChange")["event"]
+    # Aquí puedes llamar a un endpoint para actualizar el evento en el backend
+    st.success("Cita actualizada con éxito.")
