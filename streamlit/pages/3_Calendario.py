@@ -239,8 +239,25 @@ if state.get("select") is not None:
     st.session_state["time_final"] = state["select"]["end"]
     agregar_cita_popup()
 
-# Manejar cambios en los eventos
-if state.get("eventChange") is not None:
-    data = state.get("eventChange")["event"]
-    # Aquí puedes llamar a un endpoint para actualizar el evento en el backend
-    st.success("Cita actualizada con éxito.")
+# Mover cita en el calendario
+if state.get("eventChange"):
+    event_data = state["eventChange"]["event"]
+    cita_id = event_data["id"]
+    nueva_fecha = event_data["start"]
+
+    response = requests.put(f"{BACKEND_URL}/modificar-cita/{cita_id}", json={"nueva_fecha": nueva_fecha})
+    if response.status_code == 200:
+        st.success("Cita actualizada exitosamente.")
+    else:
+        st.error("Error al actualizar la cita.")
+
+# Cancelar cita
+if state.get("eventRemove"):
+    event_data = state["eventRemove"]["event"]
+    cita_id = event_data["id"]
+
+    response = requests.delete(f"{BACKEND_URL}/cancelar-cita/{cita_id}")
+    if response.status_code == 200:
+        st.success("Cita cancelada exitosamente.")
+    else:
+        st.error("Error al cancelar la cita.")
