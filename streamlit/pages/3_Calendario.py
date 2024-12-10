@@ -187,6 +187,6 @@ if state.get("eventChange"):
     response = eliminar_cita(cita_id)
     if response.status_code == 200:
         st.session_state["citas"] = obtener_citas()
-        st.success("Cita eliminada correctamente")
+        st.success("Cita modificada correctamente")
     else:
-        st.error(f"Error al eliminar cita: {response.status_code}")
+        st.error(f"Error al modificar cita: {response.status_code}")
