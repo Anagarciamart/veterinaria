@@ -181,12 +181,13 @@ if state.get("eventClick"):
     st.session_state["evento_id"] = evento_id
     st.info(f"Evento seleccionado: {evento_id}")
     if st.button("Cancelar cita"):
+        evento_id = int(st.session_state["evento_id"])  # Convertir a entero si el backend espera números
         response = eliminar_cita(evento_id)
         if response.status_code == 200:
-            st.session_state["citas"] = obtener_citas()
+            st.session_state["citas"] = obtener_citas()  # Sincronizar estado
             st.success("Cita eliminada correctamente")
         else:
-            st.error(f"Error al eliminar cita: {response.status_code}")
+            st.error(f"Error al eliminar cita: {response.status_code}. Respuesta del servidor: {response.text}")
 
 # Popup para registrar una nueva cita
 if state.get("select"):
@@ -198,19 +199,23 @@ if state.get("select"):
     if enviado:
         fecha_inicio = state["select"]["start"]
         fecha_fin = state["select"]["end"]
+        st.write(f"Datos enviados: animal={animal}, dueno={dueno}, tratamiento={tratamiento}, inicio={fecha_inicio}, fin={fecha_fin}")
         response = enviar_cita(animal, dueno, tratamiento, fecha_inicio, fecha_fin)
-        if response.status_code == 200:
+        if response and response.status_code == 200:
             st.session_state["citas"] = obtener_citas()
             st.success("Cita registrada correctamente")
         else:
-            st.error(f"Error al registrar cita: {response.status_code}")
+            st.error("Error al registrar cita")
+            if response:
+                st.write("Detalles:", response.json())
 
 # Manejo de eventos modificados
 if state.get("eventChange"):
-    evento_id = state["eventChange"]["event"]["id"]
-    inicio = state["eventChange"]["event"]["start"]
-    fin = state["eventChange"]["event"]["end"]
+    evento_id = int(state["eventChange"]["event"]["id"])  # Convertir a entero si es necesario
+    inicio = state["eventChange"]["event"]["start"][:-5]  # Remover milisegundos
+    fin = state["eventChange"]["event"]["end"][:-5]
     tratamiento = state["eventChange"]["event"]["title"]
+
     response = actualizar_cita(evento_id, inicio, fin, tratamiento)
     if response.status_code == 200:
         st.session_state["citas"] = obtener_citas()
