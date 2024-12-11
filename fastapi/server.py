@@ -29,7 +29,7 @@ class Cita(BaseModel):
     treatment: str
     start_time: datetime
     end_time: datetime
-    status: str = "Pendiente"  # Pendiente, Finalizada, Cancelada
+    status: str = "Pendiente"
 
 class Factura(BaseModel):
     id: int
@@ -52,6 +52,14 @@ def registrar_dueno(dueno: Dueno):
     for d in duenos_db:
         if d.dni == dueno.dni:
             raise HTTPException(status_code=400, detail="El DNI ya está registrado.")
+    duenos_db.append(dueno)
+    return {"mensaje": "Dueño registrado con éxito."}
+
+# Endpoints de gestión
+@app.post("/registrar-dueño/")
+def registrar_dueno(dueno: Dueno):
+    if any(d.dni == dueno.dni for d in duenos_db):
+        raise HTTPException(status_code=400, detail="El DNI ya está registrado.")
     duenos_db.append(dueno)
     return {"mensaje": "Dueño registrado con éxito."}
 
@@ -153,29 +161,17 @@ def actualizar_estado_mascota(data: dict):
     return {"mensaje": f"Estado de la mascota actualizado a '{data['status']}' correctamente."}
 
 # Endpoints de Gestión de Citas
+
 @app.post("/crear-cita/")
 def crear_cita(cita: Cita):
-    for c in citas_db:
-        if c.start_time == cita.start_time:
-            raise HTTPException(status_code=400, detail="Ya existe una cita en el mismo horario.")
+    if cita.end_time <= cita.start_time:
+        raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a la de inicio.")
+    if not any(m.owner_dni == cita.owner_dni and m.pet_name.lower() == cita.pet_name.lower() for m in mascotas_db):
+        raise HTTPException(status_code=404, detail="Mascota no encontrada o no pertenece al dueño.")
+    if any((c.start_time <= cita.start_time < c.end_time or c.start_time < cita.end_time <= c.end_time) for c in citas_db):
+        raise HTTPException(status_code=400, detail="Ya existe una cita en el mismo horario.")
     citas_db.append(cita)
-    return {"mensaje": "Cita creada exitosamente."}
-
-@app.put("/modificar-cita/{cita_id}")
-def modificar_cita(cita_id: int, nueva_fecha: datetime):
-    cita = next((c for c in citas_db if c.id == cita_id), None)
-    if not cita:
-        raise HTTPException(status_code=404, detail="Cita no encontrada.")
-    cita.start_time = nueva_fecha
-    return {"mensaje": "Cita modificada exitosamente."}
-
-@app.delete("/cancelar-cita/{cita_id}")
-def cancelar_cita(cita_id: int):
-    cita = next((c for c in citas_db if c.id == cita_id), None)
-    if not cita:
-        raise HTTPException(status_code=404, detail="Cita no encontrada.")
-    cita.status = "Cancelada"
-    return {"mensaje": "Cita cancelada."}
+    return {"mensaje": "Cita creada exitosamente.", "cita": cita}
 
 @app.post("/finalizar-cita/{cita_id}")
 def finalizar_cita(cita_id: int, treatments: List[str], total_cost: float, payment_method: str):
@@ -201,3 +197,20 @@ def pagar_factura(factura_id: int):
         raise HTTPException(status_code=404, detail="Factura no encontrada.")
     factura.is_paid = True
     return {"mensaje": "Factura marcada como pagada."}
+
+@app.put("/modificar-cita/{cita_id}")
+def modificar_cita(cita_id: int, nueva_fecha: dict):
+    cita = next((c for c in citas_db if c.id == cita_id), None)
+    if not cita:
+        raise HTTPException(status_code=404, detail="Cita no encontrada.")
+    cita.start_time = nueva_fecha["nueva_fecha"]
+    return cita
+
+@app.delete("/cancelar-cita/{cita_id}")
+def cancelar_cita(cita_id: int):
+    global citas_db
+    cita = next((c for c in citas_db if c.id == cita_id), None)
+    if not cita:
+        raise HTTPException(status_code=404, detail="Cita no encontrada.")
+    citas_db = [c for c in citas_db if c.id != cita_id]
+    return {"mensaje": "Cita cancelada correctamente."}
