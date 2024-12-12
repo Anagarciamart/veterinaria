@@ -1,96 +1,88 @@
 import pandas as pd
-
 import streamlit as st
 import plotly.express as px
-
-import matplotlib
-from matplotlib.backends.backend_agg import RendererAgg
-
-import requests
 import seaborn as sns
+import requests
+
 @st.cache_data
 def load_data(url: str):
     r = requests.get(url)
     if r.status_code != 200:
         return None
-    mijson = r.json()
-    listado = mijson['contratos']
-    df = pd.DataFrame.from_records(listado)
-    df['importe_adj_con_iva'] = df['importe_adj_con_iva'].str.replace('€', '')
-    df['importe_adj_con_iva'] = df['importe_adj_con_iva'].str.replace('.', '')
-    df['importe_adj_con_iva'] = df['importe_adj_con_iva'].str.replace(',', '.')
-    df['presupuesto_con_iva'] = df['presupuesto_con_iva'].str.replace('€', '')
-    df['presupuesto_con_iva'] = df['presupuesto_con_iva'].str.replace('.', '')
-    df['presupuesto_con_iva'] = df['presupuesto_con_iva'].str.replace(',', '.')
-
-    df['presupuesto_con_iva'] = df['presupuesto_con_iva'].astype(float)
-    df['importe_adj_con_iva'] = df['importe_adj_con_iva'].astype(float)
-
-    return df
+    data = r.json()
+    return pd.DataFrame.from_records(data['owners'])  # Cambia a la clave que corresponda en tu API
 
 
+def info_box(texto, color=None):
+    st.markdown(
+        f'<div style="background-color:#4EBAE1;opacity:70%">'
+        f'<p style="text-align:center;color:white;font-size:30px;">{texto}</p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
-def info_box (texto, color=None):
-    st.markdown(f'<div style = "background-color:#4EBAE1;opacity:70%"><p style="text-align:center;color:white;font-size:30px;">{texto}</p></div>', unsafe_allow_html=True)
 
-
-
-#matplotlib.use("agg")
-#lock = RendererAgg.lock
-
+# Carga de datos
 df_merged = load_data('http://fastapi:8000/retrieve_data')
 
-
-registros = str(df_merged.shape[0])
-adjudicatarios = str(len(df_merged.adjuducatario.unique()))
-centro = str(len(df_merged.centro_seccion.unique()))
-tipologia = str(len(df_merged.tipo.unique()))
-presupuesto_medio = str(round(df_merged.presupuesto_con_iva.mean(),2))
-adjudicado_medio = str(round(df_merged.importe_adj_con_iva.mean(),2))
+# Cálculos para métricas clave
+num_owners = df_merged['owner_id'].nunique()
+num_pets = df_merged['pet_id'].nunique()
+pets_per_owner = round(df_merged.groupby('owner_id')['pet_id'].nunique().mean(), 2)
+num_treatments = df_merged['treatment_id'].nunique()
+avg_appointments_per_pet = round(df_merged.groupby('pet_id')['appointment_id'].nunique().mean(), 2)
 
 sns.set_palette("pastel")
 
-st.title("Dashboard de seguimiento ∭∭∭∭∭")
+# Título
+st.title("Dashboard de Dueños y Mascotas 🐾")
 
-st.header("Información general")
+st.header("Información General")
 
+# Métricas clave
 col1, col2, col3 = st.columns(3)
+col4, col5 = st.columns(2)
 
-col4, col5, col6 = st.columns(3)
 with col1:
-    col1.subheader('# contratos')
-    info_box(registros)
+    col1.subheader('# Dueños')
+    info_box(num_owners)
 with col2:
-    col2.subheader('# adjudicatarios')
-    info_box(adjudicatarios)
+    col2.subheader('# Mascotas')
+    info_box(num_pets)
 with col3:
-    col3.subheader('# centros')
-    info_box(centro)
-
+    col3.subheader('Mascotas por dueño (promedio)')
+    info_box(pets_per_owner)
 with col4:
-    col4.subheader('# tipologias')
-    info_box(tipologia)
-
-## Clases de medios digitales de publicacion
+    col4.subheader('# Tratamientos únicos')
+    info_box(num_treatments)
 with col5:
-    col5.subheader('# presupuesto medio')
-    info_box(presupuesto_medio, col5)
-with col6:
-    ## publicaciones
-    col6.subheader('# importe medio adjud')
-    info_box(adjudicado_medio, col6)
+    col5.subheader('Citas por mascota (promedio)')
+    info_box(avg_appointments_per_pet)
 
-# with st.beta_container('Información general sobre obras')
-#        datos = df_merged[['id', 'agno_i', 'clasemicro1']]
-tab1, tab2 = st.tabs(["Procedimientos negociados sin publicidad", "Distribución de importe en procedimiento Negociado sin publicidad"])
+# Gráficos
+tab1, tab2 = st.tabs(["Distribución de especies", "Citas por mes/año"])
 
-fig1 = px.scatter(df_merged,x='importe_adj_con_iva',y='presupuesto_con_iva',size='numlicit',color='procedimiento')
+# Gráfico de torta o barra para distribución de especies
+fig1 = px.pie(
+    df_merged,
+    names='species',
+    title='Distribución de especies de mascotas',
+    hole=0.4,
+)
 
-fig2 = px.box(df_merged.query("procedimiento == 'Negociado sin publicidad'"),x='importe_adj_con_iva')
+# Gráfico de citas por mes
+df_merged['appointment_month'] = pd.to_datetime(df_merged['appointment_date']).dt.to_period('M')
+appointments_by_month = df_merged.groupby('appointment_month').size().reset_index(name='count')
+fig2 = px.bar(
+    appointments_by_month,
+    x='appointment_month',
+    y='count',
+    title='Citas por mes',
+    labels={'appointment_month': 'Mes', 'count': 'Número de citas'},
+)
+
 with tab1:
-    # Use the Streamlit theme.
-    # This is the default. So you can also omit the theme argument.
     st.plotly_chart(fig1, theme="streamlit", use_container_width=True)
+
 with tab2:
-    # Use the native Plotly theme.
     st.plotly_chart(fig2, theme=None, use_container_width=True)

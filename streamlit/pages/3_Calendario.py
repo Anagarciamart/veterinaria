@@ -325,5 +325,6 @@ if state.get("eventClick"):
         if success:
             st.success("Cita cancelada exitosamente.")
             st.session_state["events"] = [e for e in st.session_state["events"] if e["id"] != cita_id]
+            st.rerun()
         else:
             st.error(f"Error al cancelar la cita: {response}")
